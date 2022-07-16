@@ -1,2 +1,84 @@
 # OpenCore_update
-A utility for hackintosh user to update opencore and some kexts
+## Introduce
+
+A utility for hackintosh user to update opencore and some kexts. The script will automatically detect the local kexts or OpenCorePkg's version and compare with the remote one, then give the update  information of them.
+
+## To Do
+
+- [x] Gengerate update information
+- [ ] main interface
+- [ ] EFI backup & update
+
+## Support kexts
+
+- [x] OpenCorePkg
+
+- [x] AirportBrcmFixup,
+
+- [x] AppleALC
+
+- [x] BT4LEContinuityFixup
+
+- [x] BrcmPatchRAM
+
+- [x] BrightnessKeys
+
+- [x] CPUFriend
+
+- [x] CpuTopologySync
+
+- [x] CpuTscSync
+
+- [x] DebugEnhancer
+
+- [x] ECEnabler
+
+- [x] FeatureUnlock
+
+- [x] HibernationFixup
+
+- [x] IntelMausi
+
+- [x] Lilu
+
+- [x] MacHyperVSupport
+
+- [x] NVMeFix
+
+- [x] NoTouchID
+
+- [x] RTCMemoryFixup
+
+- [x] RealtekRTL8111
+
+- [x] RestrictEvents
+
+- [x] UEFIGraphicsFB
+
+- [x] VirtualSMC
+
+- [x] VoodooInput
+
+- [x] VoodooPS2
+
+- [x] VoodooPS2-Alps
+
+- [x] VoodooRMI
+
+- [x] WhateverGreen
+
+## Usage
+
+Open the `update_opencore.py` and change the EFI_disk to your EFI disk identity.
+
+Tip: you can use the command below to check your EFI partition:
+
+````bash
+diskutil list
+````
+
+Tip: When you run the script, you may need to input your root password to mount the EFI patition.
+
+## Credits
+
+- [Dortania](https://github.com/dortania) for provide binary and database of OpenCorePkg with some kexts in [build-repo](https://github.com/dortania/build-repo/tree/builds).
