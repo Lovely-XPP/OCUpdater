@@ -273,7 +273,7 @@ def init(EFI_disk, path, kexts_list):
     print('[Info] 正在初始化程序...')
 
     # judge if database file exists
-    if ~os.path.exists(path):
+    if not os.path.exists(path):
         print('[Info] 未发现数据文件，正在下载...')
         download_database(path)
         print('[Info] 数据文件下载完成')
