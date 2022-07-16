@@ -302,4 +302,4 @@ if __name__ == "__main__":
     output_info(info)
 
     # unmount EFI
-    os.system('sudo -s diskutil mount /dev/' + EFI_disk)
+    os.system('sudo -s diskutil unmount /dev/' + EFI_disk)
