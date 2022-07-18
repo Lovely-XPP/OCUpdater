@@ -76,7 +76,7 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 - Install Dependency module of python
 
 ````bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ````
 
 - Run `OCUpdater.command`.
