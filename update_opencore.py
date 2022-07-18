@@ -6,15 +6,13 @@ import time
 import copy
 from plistlib import *
 
-# the identification of EFI_disk
-EFI_disk = 'disk0s4'
 
 class OCupdate:
-    def __init__(self, EFI_disk):
+    def __init__(self):
         # PATH and Constant
         ROOT = sys.path[0]
         self.path = ROOT + '/data.json'
-        self.EFI_disk = EFI_disk
+        self.EFI_disk = ''
         self.kexts_list = [
             'OpenCorePkg',
             'AirportBrcmFixup',
@@ -50,6 +48,50 @@ class OCupdate:
         self.remote = {}
         self.update_info = {}
 
+    # set text format
+    def Colors(self, text, fcolor=None, bcolor=None, style=None):
+        '''
+        自定义字体样式及颜色
+        '''
+        # 字体颜色
+        fg = {
+            'black': '33[30m',  # 字体黑
+            'red': '33[31m',  # 字体红
+            'green': '33[32m',  # 字体绿
+            'yellow': '33[33m',  # 字体黄
+            'blue': '33[34m',  # 字体蓝
+            'magenta': '33[35m',  # 字体紫
+            'cyan': '33[36m',  # 字体青
+            'white': '33[37m',  # 字体白
+            'end': '33[0m'  # 默认色
+        }
+        # 背景颜色
+        bg = {
+            'black': '33[40m',  # 背景黑
+            'red': '33[41m',  # 背景红
+            'green': '33[42m',  # 背景绿
+            'yellow': '33[43m',  # 背景黄
+            'blue': '33[44m',  # 背景蓝
+            'magenta': '33[45m',  # 背景紫
+            'cyan': '33[46m',  # 背景青
+            'white': '33[47m',  # 背景白
+        }
+        # 内容样式
+        st = {
+            'bold': '33[1m',  # 高亮
+            'url': '33[4m',  # 下划线
+            'blink': '33[5m',  # 闪烁
+            'seleted': '33[7m',  # 反显
+        }
+
+        if fcolor in fg:
+            text = fg[fcolor]+text+fg['end']
+        if bcolor in bg:
+            text = bg[bcolor] + text + fg['end']
+        if style in st:
+            text = st[style] + text + fg['end']
+        return text
+    
 
     # get file modified time
     def get_time(self, file):
@@ -261,7 +303,12 @@ class OCupdate:
 
     # mount EFI and get EFI partition name
     def mount_EFI(self):
-        out = os.popen('sudo -s diskutil mount /dev/' + self.EFI_disk).read()
+        out = os.popen('diskutil list').read()
+        out = out.split('EFI')[1]
+        out = out.split('\n')[0]
+        out = out.split('disk')[1]
+        self.EFI_disk = 'disk' + out.strip()
+        out = os.popen('diskutil mount /dev/' + self.EFI_disk).read()
         out = out.strip()
         out = out.split('on')
         out = out[0]
@@ -272,17 +319,15 @@ class OCupdate:
 
     # init
     def init(self):
-        print('[Info] 请输入密码以挂载 EFI 分区（输入密码时不可见）：')
-
-        # mount EFI and get EFI partition name
-        self.mount_EFI()
 
         print('[Info] 正在初始化程序...')
+        # mount EFI and get EFI partition name
+        self.mount_EFI()
 
         # judge if database file exists
         if not os.path.exists(self.path):
             print('[Info] 未发现数据文件，正在下载...')
-            self.download_database(self.path)
+            self.download_database()
             print('[Info] 数据文件下载完成')
         print('[Info] 发现数据文件')
         print('[Info] 正在处理数据文件')
@@ -305,11 +350,15 @@ class OCupdate:
         print("#"*81)
         print("#" + " "*32 + "OpenCore Update" + " "*32 + "#")
         print("#"*81)
+        print("  [Status]")
 
 
 if __name__ == "__main__":
     # 实例化类
-    ocup = OCupdate(EFI_disk)
+    ocup = OCupdate()
+
+    # download database
+    # ocup.download_database()
     
     # init
     ocup.init()
@@ -318,4 +367,4 @@ if __name__ == "__main__":
     ocup.output_info()
 
     # unmount EFI
-    # os.system('sudo -s diskutil unmount /dev/' + EFI_disk)
+    # os.system('diskutil unmount /dev/' + EFI_disk)
