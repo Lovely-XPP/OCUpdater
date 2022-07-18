@@ -1,3 +1,4 @@
+from cgitb import reset
 from genericpath import exists
 import json
 from operator import mod
@@ -25,6 +26,7 @@ class OCUpdater:
         self.ver = 'V0.0.8'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
+        self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
         self.kexts_list = [
             'OpenCorePkg',
             'AirportBrcmFixup',
@@ -55,6 +57,7 @@ class OCUpdater:
             'VoodooRMI',
             'WhateverGreen'
         ]
+        self.network = False
         self.root = ''
         self.choice = ''
         self.local = {}
@@ -212,8 +215,7 @@ class OCUpdater:
 
     # download database
     def download_database(self):
-        url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
-        r = requests.get(url)
+        r = requests.get(self.url)
         with open(self.path, 'wb') as f:
             f.write(r.content)
             f.close
@@ -334,17 +336,34 @@ class OCUpdater:
         EFI_root = os.path.join('/Volumes/', out)
         self.root = EFI_root
 
+
+    # check network to remote data
+    def check_network(self):
+        try:
+            res = requests.get(self.url)
+            self.network = res.ok
+        except:
+            self.network = False
+
     # init
     def init(self):
 
-        print(self.Colors('[Info] Prepareing for running...', fcolor='green'))
+        print(self.Colors('[Info] Preparing for running...', fcolor='green'))
 
         # mount EFI and get EFI partition name
         self.mount_EFI()
 
+        # check network
+        self.check_network()
+
         # judge if database file exists
         if not os.path.exists(self.path):
             print(self.Colors('[Info] Data File not Found, Downloading...', fcolor='green'))
+            if not self.network:
+                print(self.Colors('[Error] Network error, please check your connection to ' + self.url , fcolor='red'))
+                print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+                print("")
+                exit()
             self.download_database()
             print(self.Colors('[Info] Downloading Done', fcolor='green'))
         print(self.Colors('[Info] Data File Found...', fcolor='green'))
@@ -382,7 +401,6 @@ class OCUpdater:
                 print("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
             else: 
                 print("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
-        print("")
 
 
     # title
@@ -406,6 +424,10 @@ class OCUpdater:
             print("     EFI: " + self.Colors("mounted", fcolor='green'))
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
+        if self.network:
+            print("     Network: " + self.Colors("Online", fcolor='green'))
+        else:
+            print("     Network: " + self.Colors("Offline", fcolor='red'))
         if len(self.remote) > 0:
             print("     Remote Data: " + self.Colors("loaded", fcolor='green'))
         else:
@@ -418,6 +440,7 @@ class OCUpdater:
         print("A. Show All Kexts Information")
         print("B. Backup EFI")
         print("D. Download and Update Remote Database")
+        print("R. Refresh Network Status")
         print("S. Show Update Information")
         print("U. Update OpenCore and Kexts (Automatically Backup EFI)")
         print("")
@@ -440,7 +463,6 @@ class OCUpdater:
         source_path = os.path.abspath(os.path.join(self.root, 'EFI'))
         shutil.copytree(source_path, dist)
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
-        print("")
         
 
     # main
@@ -453,41 +475,74 @@ class OCUpdater:
             os.system("clear")
             self.title()
             if self.choice == 'A':
-                self.output_all()
-                input("Press [Enter] to back...")
                 self.choice = ''
+                print("> All Kexts Information")
+                print("")
+                self.output_all()
+                print("")
+                input("Press [Enter] to back...")
                 continue
 
             if self.choice == 'B':
+                self.choice = ''
+                print("> Back up EFI")
+                print("")
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
+                print("")
                 input("Press [Enter] to back...")
-                self.choice = ''
                 continue
 
             if self.choice == 'D':
+                self.choice = ''
+                print("> Download and Update Remote Database")
+                print("")
+                print(self.Colors("[Info] Checking Network...", fcolor='green'))
+                self.check_network()
+                print(self.Colors("[Info] Checking Network Done", fcolor='green'))
+                if not self.network:
+                    print(self.Colors('[Error] Network error, please check your connection to ' + self.url , fcolor='red'))
+                    print(self.Colors('[Error] Update cancel because of connection error', fcolor='red'))
+                    print("")
+                    input("Press [Enter] to back...")
+                    continue
+                print(self.Colors("[Info] Connection successfully", fcolor='green'))
                 print(self.Colors("[Info] Downloading the latest remote database...", fcolor='green'))
                 self.download_database()
                 print(self.Colors("[Info] Download Done", fcolor='green'))
                 print(self.Colors("[Info] Updating remote data", fcolor='green'))
                 self.remote = self.get_remote_data()
                 print(self.Colors("[Info] Updating Done", fcolor='green'))
+                print("")
                 input("Press [Enter] to back...")
+                continue
+            
+            if self.choice == 'R':
                 self.choice = ''
+                print("> Refresh Network")
+                print("")
+                print(self.Colors("[Info] Checking Network...", fcolor='green'))
+                self.check_network()
+                print(self.Colors("[Info] Checking Network Done", fcolor='green'))
                 continue
 
             if self.choice == 'S':
-                self.output_update()
-                input("Press [Enter] to back...")
                 self.choice = ''
+                print("> Update Information")
+                print("")
+                self.output_update()
+                print("")
+                input("Press [Enter] to back...")
                 continue
 
             if self.choice == 'U':
+                self.choice = ''
+                print("> Update EFI")
+                print("")
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
                 print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
                 input("Press [Enter] to back...")
-                self.choice = ''
                 continue
 
             self.main_interface()

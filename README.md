@@ -7,6 +7,7 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 
 - [x] Mount EFI
 - [x] Gengerate update information
+- [x] Connection check
 - [x] main interface
 - [x] EFI backup 
 - [ ] EFI update
@@ -71,7 +72,14 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 
 ## Usage
 
-Clone the repo and run `OCupdater.command`.
+- Clone the repo 
+- Install Dependency module of python
+
+````bash
+pip install -r requirements.txt
+````
+
+- Run `OCupdater.command`.
 
 Tip: When you run the script, the script will automatically mount EFI partition without any passwords. If the process runs wrong, please create issue.
 
