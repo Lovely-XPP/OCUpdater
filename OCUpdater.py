@@ -1,7 +1,4 @@
-from cgitb import reset
-from genericpath import exists
 import json
-from operator import mod
 import sys
 import requests
 import os
@@ -23,7 +20,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.0.8'
+        self.ver = 'V0.0.12'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -67,37 +64,37 @@ class OCUpdater:
     # set text format
     def Colors(self, text, fcolor=None, bcolor=None, style=None):
         '''
-        自定义字体样式及颜色
+        User-Defined print text format
         '''
-        # 字体颜色
+        # Font Color
         fg = {
-            'black': '\33[30m',  # 字体黑
-            'red': '\33[31m',  # 字体红
-            'green': '\33[32m',  # 字体绿
-            'yellow': '\33[33m',  # 字体黄
-            'blue': '\33[34m',  # 字体蓝
-            'magenta': '\33[35m',  # 字体紫
-            'cyan': '\33[36m',  # 字体青
-            'white': '\33[37m',  # 字体白
-            'end': '\33[0m'  # 默认色
+            'black': '\33[30m',
+            'red': '\33[31m',
+            'green': '\33[32m',
+            'yellow': '\33[33m',
+            'blue': '\33[34m',
+            'magenta': '\33[35m',
+            'cyan': '\33[36m',
+            'white': '\33[37m',
+            'end': '\33[0m'
         }
-        # 背景颜色
+        # Background Color
         bg = {
-            'black': '\33[40m',  # 背景黑
-            'red': '\33[41m',  # 背景红
-            'green': '\33[42m',  # 背景绿
-            'yellow': '\33[43m',  # 背景黄
-            'blue': '\33[44m',  # 背景蓝
-            'magenta': '\33[45m',  # 背景紫
-            'cyan': '\33[46m',  # 背景青
-            'white': '\33[47m',  # 背景白
+            'black': '\33[40m',
+            'red': '\33[41m',
+            'green': '\33[42m',
+            'yellow': '\33[43m',
+            'blue': '\33[44m',
+            'magenta': '\33[45m',
+            'cyan': '\33[46m',
+            'white': '\33[47m',
         }
-        # 内容样式
+        # 
         st = {
-            'bold': '\33[1m',  # 高亮
-            'url': '\33[4m',  # 下划线
-            'blink': '\33[5m',  # 闪烁
-            'seleted': '\33[7m',  # 反显
+            'bold': '\33[1m', # Highlight
+            'url': '\33[4m',  # Underline
+            'blink': '\33[5m',
+            'seleted': '\33[7m',
         }
 
         if fcolor in fg:
@@ -408,7 +405,7 @@ class OCUpdater:
         title_name = "OpenCore Updater"
         l = len(title_name) + len(self.ver) + 1
         title_name = title_name + ' ' + self.Colors(self.ver, fcolor='green')
-        if mod(size,2) != mod(l,2):
+        if (size % 2) != (l % 2):
             size = size + 1
         print("#"*size)
         space = int(size/2) - int(l/2) - 1
@@ -451,11 +448,11 @@ class OCUpdater:
         self.choice = choice
 
 
-    # backup efi
+    # backup EFI
     def backup_EFI(self):
         dist_root = sys.path[0]
         dist_root = os.path.abspath(os.path.join(dist_root, 'backup_EFI/'))
-        if not exists(dist_root):
+        if not os.path.exists(dist_root):
             os.makedirs(dist_root)
         now = time.time()
         now = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(now))
@@ -463,7 +460,10 @@ class OCUpdater:
         source_path = os.path.abspath(os.path.join(self.root, 'EFI'))
         shutil.copytree(source_path, dist)
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
-        
+    
+    # update EFI
+    def update_EFI(self):
+        a = 1
 
     # main
     def main(self):
@@ -554,6 +554,8 @@ class OCUpdater:
         res = os.popen('diskutil unmount /dev/' + self.EFI_disk).read().strip()
         print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
         print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+        print("")
+        print("Have a nice day ~")
         exit()
 
 
