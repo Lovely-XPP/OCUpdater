@@ -79,7 +79,7 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 pip install -r requirements.txt
 ````
 
-- Run `OCupdater.command`.
+- Run `OCUpdater.command`.
 
 Tip: When you run the script, the script will automatically mount EFI partition without any passwords. If the process runs wrong, please create issue.
 
