@@ -70,7 +70,7 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 
 ## Usage
 
-Clone the repo and run `OCupdate.command`.
+Clone the repo and run `OCupdater.command`.
 
 Tip: When you run the script, the script will automatically mount EFI partition without any passwords. If the process runs wrong, please create issue.
 
