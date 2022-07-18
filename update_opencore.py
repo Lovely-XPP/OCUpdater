@@ -4,13 +4,22 @@ import requests
 import os
 import time
 import copy
+from datetime import datetime
 from plistlib import *
 
 
 class OCupdate:
     def __init__(self):
+        # Verify running os
+        if not sys.platform.lower() == "darwin":
+            print("")
+            print("OpenCore Update can only be run on macOS!")
+            print("The script has been terminated.")
+            print("")
+            exit()
         # PATH and Constant
         ROOT = sys.path[0]
+        self.ver = '0.0.5'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.kexts_list = [
@@ -44,6 +53,10 @@ class OCupdate:
             'WhateverGreen'
         ]
         self.root = ''
+        self.choice = ''
+        self.mode = "main"
+        self.efi_status = 0
+        self.database = 0
         self.local = {}
         self.remote = {}
         self.update_info = {}
@@ -55,33 +68,33 @@ class OCupdate:
         '''
         # 字体颜色
         fg = {
-            'black': '33[30m',  # 字体黑
-            'red': '33[31m',  # 字体红
-            'green': '33[32m',  # 字体绿
-            'yellow': '33[33m',  # 字体黄
-            'blue': '33[34m',  # 字体蓝
-            'magenta': '33[35m',  # 字体紫
-            'cyan': '33[36m',  # 字体青
-            'white': '33[37m',  # 字体白
-            'end': '33[0m'  # 默认色
+            'black': '\33[30m',  # 字体黑
+            'red': '\33[31m',  # 字体红
+            'green': '\33[32m',  # 字体绿
+            'yellow': '\33[33m',  # 字体黄
+            'blue': '\33[34m',  # 字体蓝
+            'magenta': '\33[35m',  # 字体紫
+            'cyan': '\33[36m',  # 字体青
+            'white': '\33[37m',  # 字体白
+            'end': '\33[0m'  # 默认色
         }
         # 背景颜色
         bg = {
-            'black': '33[40m',  # 背景黑
-            'red': '33[41m',  # 背景红
-            'green': '33[42m',  # 背景绿
-            'yellow': '33[43m',  # 背景黄
-            'blue': '33[44m',  # 背景蓝
-            'magenta': '33[45m',  # 背景紫
-            'cyan': '33[46m',  # 背景青
-            'white': '33[47m',  # 背景白
+            'black': '\33[40m',  # 背景黑
+            'red': '\33[41m',  # 背景红
+            'green': '\33[42m',  # 背景绿
+            'yellow': '\33[43m',  # 背景黄
+            'blue': '\33[44m',  # 背景蓝
+            'magenta': '\33[45m',  # 背景紫
+            'cyan': '\33[46m',  # 背景青
+            'white': '\33[47m',  # 背景白
         }
         # 内容样式
         st = {
-            'bold': '33[1m',  # 高亮
-            'url': '33[4m',  # 下划线
-            'blink': '33[5m',  # 闪烁
-            'seleted': '33[7m',  # 反显
+            'bold': '\33[1m',  # 高亮
+            'url': '\33[4m',  # 下划线
+            'blink': '\33[5m',  # 闪烁
+            'seleted': '\33[7m',  # 反显
         }
 
         if fcolor in fg:
@@ -97,6 +110,8 @@ class OCupdate:
     def get_time(self, file):
         time0 = []
         k_time = os.stat(file).st_mtime
+        k_time = datetime.utcfromtimestamp(k_time)
+        k_time = k_time.timestamp()
         k_time1 = time.strftime('%Y-%m-%d', time.localtime(k_time))
         k_time2 = time.strftime('%H:%M:%S', time.localtime(k_time))
         k_time1_sp = k_time1.split('-')
@@ -284,7 +299,7 @@ class OCupdate:
 
 
     # output information
-    def output_info(self):
+    def output_all(self):
         for i in self.update_info.keys():
             print(i)
             cg = self.update_info[i]
@@ -321,6 +336,7 @@ class OCupdate:
     def init(self):
 
         print('[Info] 正在初始化程序...')
+
         # mount EFI and get EFI partition name
         self.mount_EFI()
 
@@ -343,28 +359,88 @@ class OCupdate:
 
         print('[Info] 数据文件处理完成')
         print('[Info] 初始化完成')
+        os.system("clear")
 
+    def output_update(self):
+        first_time = 0
+        for i in self.local.keys():
+            cg = self.update_info[i]
+            if i == "OpenCorePkg":
+                print(i + ":")
+                print("   OpenCore:      \t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+                continue
+            if first_time == 0:
+                print("Kexts:")
+                first_time = 1
+            if len(i) < 11:
+                print("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+            else: 
+                print("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+
+
+    # title
+    def title(self):
+        print("#"*61)
+        print("#" + " "*22 + "OpenCore Update" + " "*22 + "#")
+        print("#"*61)
+        print("")
 
     # main interface
-    def main_interface():
-        print("#"*81)
-        print("#" + " "*32 + "OpenCore Update" + " "*32 + "#")
-        print("#"*81)
-        print("  [Status]")
+    def main_interface(self):
+        print("Current Status:")
+        print("     Script version: " + self.ver)
+        print("     Show Time format: UTC")
+        if len(self.root) > 0:
+            print("     EFI: " + self.Colors("mounted", fcolor='green'))
+        else:
+            print("     EFI: " + self.Colors("unmounted", fcolor='red'))
+        if len(self.remote) > 0:
+            print("     Remote Data: " + self.Colors("loaded", fcolor='green'))
+        else:
+            print("     Remote Data: " + self.Colors("unloaded", fcolor='red'))
+        if len(self.local) > 0:
+            print("     Local Data: " + self.Colors("loaded", fcolor='green'))
+        else:
+            print("     Local Data: " + self.Colors("unloaded", fcolor='red'))
+        print("")
+        print("A. Show All Kexts Information")
+        print("B. Backup EFI")
+        print("D. Download and Update Remote Database")
+        print("S. Show Update Information")
+        print("U. Update OpenCore and Kexts (Automatically Backup EFI)")
+        print("")
+        print("Q. Quit")
+        print("")
+        choice = input("Please select your option: ")
+        choice = choice.upper()
+        self.choice = choice
+
+    # main
+    def main(self):
+        # init
+        self.init()
+
+        # operation
+        while self.choice != 'Q' or self.mode != "main":
+            os.system("clear")
+            self.title()
+            if self.choice == 'A':
+                self.mode = 'all'
+                self.output_all()
+                input("Press [Enter] to back...")
+                self.choice = ''
+                self.mode = 'main'
+                continue
+            self.main_interface()
 
 
 if __name__ == "__main__":
     # 实例化类
     ocup = OCupdate()
 
-    # download database
-    # ocup.download_database()
     
-    # init
-    ocup.init()
-
-    # update info output
-    ocup.output_info()
+    # show main menu
+    ocup.main()
 
     # unmount EFI
     # os.system('diskutil unmount /dev/' + EFI_disk)
