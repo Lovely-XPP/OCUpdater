@@ -1,4 +1,5 @@
 import json
+from operator import mod
 import sys
 import requests
 import os
@@ -8,18 +9,18 @@ from datetime import datetime
 from plistlib import *
 
 
-class OCupdate:
+class OCUpdater:
     def __init__(self):
         # Verify running os
         if not sys.platform.lower() == "darwin":
             print("")
-            print("OpenCore Update can only be run on macOS!")
-            print("The script has been terminated.")
+            print("[Error] OpenCore Update can only be run on macOS!")
+            print("[Info] The script has been terminated.")
             print("")
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = '0.0.5'
+        self.ver = 'V0.0.8'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.kexts_list = [
@@ -55,8 +56,6 @@ class OCupdate:
         self.root = ''
         self.choice = ''
         self.mode = "main"
-        self.efi_status = 0
-        self.database = 0
         self.local = {}
         self.remote = {}
         self.update_info = {}
@@ -300,6 +299,7 @@ class OCupdate:
 
     # output information
     def output_all(self):
+        print(self.Colors("[Info] Time Format: UTC \n", fcolor='green'))
         for i in self.update_info.keys():
             print(i)
             cg = self.update_info[i]
@@ -315,6 +315,7 @@ class OCupdate:
             for kext in cg['kexts']:
                 print("\t\t   " + str(kext))
             print("     [Status]  " + cg['status'] + '\n')
+
 
     # mount EFI and get EFI partition name
     def mount_EFI(self):
@@ -335,18 +336,18 @@ class OCupdate:
     # init
     def init(self):
 
-        print('[Info] 正在初始化程序...')
+        print('[Info] Prepareing for running...')
 
         # mount EFI and get EFI partition name
         self.mount_EFI()
 
         # judge if database file exists
         if not os.path.exists(self.path):
-            print('[Info] 未发现数据文件，正在下载...')
+            print('[Info] Data File not Found, Downloading...')
             self.download_database()
-            print('[Info] 数据文件下载完成')
-        print('[Info] 发现数据文件')
-        print('[Info] 正在处理数据文件')
+            print('[Info] Downloading Done')
+        print('[Info] Data File Found...')
+        print('[Info] Reading Data File...')
 
         # get local data
         self.local = self.get_local_data()
@@ -357,17 +358,21 @@ class OCupdate:
         # generate update information
         self.update_info = self.gen_update_info()
 
-        print('[Info] 数据文件处理完成')
-        print('[Info] 初始化完成')
+        print('[Info] Data File Reading Done')
+        print('[Info] Init Done')
         os.system("clear")
 
+
+    # update info output
     def output_update(self):
         first_time = 0
+        print(self.Colors("[Info] Time Format: UTC \n", fcolor='green'))
         for i in self.local.keys():
             cg = self.update_info[i]
             if i == "OpenCorePkg":
                 print(i + ":")
                 print("   OpenCore:      \t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+                print("")
                 continue
             if first_time == 0:
                 print("Kexts:")
@@ -376,20 +381,26 @@ class OCupdate:
                 print("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
             else: 
                 print("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+        print("")
 
 
     # title
-    def title(self):
-        print("#"*61)
-        print("#" + " "*22 + "OpenCore Update" + " "*22 + "#")
-        print("#"*61)
+    def title(self, size=85):
+        title_name = "OpenCore Updater"
+        l = len(title_name) + len(self.ver) + 1
+        title_name = title_name + ' ' + self.Colors(self.ver, fcolor='green')
+        if mod(size,2) != mod(l,2):
+            size = size + 1
+        print("#"*size)
+        space = int(size/2) - int(l/2) - 1
+        print("#" + " "*space + title_name + " "*space + "#")
+        print("#"*size)
         print("")
+
 
     # main interface
     def main_interface(self):
         print("Current Status:")
-        print("     Script version: " + self.ver)
-        print("     Show Time format: UTC")
         if len(self.root) > 0:
             print("     EFI: " + self.Colors("mounted", fcolor='green'))
         else:
@@ -431,16 +442,64 @@ class OCupdate:
                 self.choice = ''
                 self.mode = 'main'
                 continue
+
+            if self.choice == 'B':
+                self.mode = 'backup'
+                self.output_all()
+                input("Press [Enter] to back...")
+                self.choice = ''
+                self.mode = 'main'
+                continue
+
+            if self.choice == 'D':
+                self.mode = 'download'
+                print("[Info] Downloading the latest remote database...")
+                self.download_database()
+                print("[Info] Download Done")
+                print("[Info] Updating remote data")
+                self.remote = self.get_remote_data()
+                print("[Info] Updating Done")
+                input("Press [Enter] to back...")
+                self.choice = ''
+                self.mode = 'main'
+                continue
+
+            if self.choice == 'S':
+                self.mode = 'show'
+                self.output_update()
+                input("Press [Enter] to back...")
+                self.choice = ''
+                self.mode = 'main'
+                continue
+
+            if self.choice == 'U':
+                self.mode = 'update'
+                print("[Info] Downloading the latest remote database...")
+                self.download_database()
+                print("[Info] Download Done")
+                print("[Info] Updating remote data")
+                self.remote = self.get_remote_data()
+                print("[Info] Updating Done")
+                input("Press [Enter] to back...")
+                self.choice = ''
+                self.mode = 'main'
+                continue
+
             self.main_interface()
+        
+        # quit
+        os.system("clear")
+        self.title()
+        # unmount EFI
+        res = os.popen('diskutil unmount /dev/' + self.EFI_disk).read().strip()
+        print("[Info] (EFI partition) " + res + ".")
+        print("[Info] The script is terminated.")
+        exit()
 
 
 if __name__ == "__main__":
     # 实例化类
-    ocup = OCupdate()
+    ocup = OCUpdater()
 
-    
-    # show main menu
+    # run script
     ocup.main()
-
-    # unmount EFI
-    # os.system('diskutil unmount /dev/' + EFI_disk)
