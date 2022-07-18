@@ -1,3 +1,4 @@
+from genericpath import exists
 import json
 from operator import mod
 import sys
@@ -5,6 +6,7 @@ import requests
 import os
 import time
 import copy
+import shutil
 from datetime import datetime
 from plistlib import *
 
@@ -14,8 +16,8 @@ class OCUpdater:
         # Verify running os
         if not sys.platform.lower() == "darwin":
             print("")
-            print("[Error] OpenCore Update can only be run on macOS!")
-            print("[Info] The script has been terminated.")
+            print(self.Colors("[Error] OpenCore Update can only be run on macOS!", fcolor='red'))
+            print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
         # PATH and Constant
@@ -55,7 +57,6 @@ class OCUpdater:
         ]
         self.root = ''
         self.choice = ''
-        self.mode = "main"
         self.local = {}
         self.remote = {}
         self.update_info = {}
@@ -106,9 +107,9 @@ class OCUpdater:
     
 
     # get file modified time
-    def get_time(self, file):
+    def get_time(self, filename):
         time0 = []
-        k_time = os.stat(file).st_mtime
+        k_time = os.stat(filename).st_mtime
         k_time = datetime.utcfromtimestamp(k_time)
         k_time = k_time.timestamp()
         k_time1 = time.strftime('%Y-%m-%d', time.localtime(k_time))
@@ -336,18 +337,18 @@ class OCUpdater:
     # init
     def init(self):
 
-        print('[Info] Prepareing for running...')
+        print(self.Colors('[Info] Prepareing for running...', fcolor='green'))
 
         # mount EFI and get EFI partition name
         self.mount_EFI()
 
         # judge if database file exists
         if not os.path.exists(self.path):
-            print('[Info] Data File not Found, Downloading...')
+            print(self.Colors('[Info] Data File not Found, Downloading...', fcolor='green'))
             self.download_database()
-            print('[Info] Downloading Done')
-        print('[Info] Data File Found...')
-        print('[Info] Reading Data File...')
+            print(self.Colors('[Info] Downloading Done', fcolor='green'))
+        print(self.Colors('[Info] Data File Found...', fcolor='green'))
+        print(self.Colors('[Info] Reading Data File...', fcolor='green'))
 
         # get local data
         self.local = self.get_local_data()
@@ -358,8 +359,8 @@ class OCUpdater:
         # generate update information
         self.update_info = self.gen_update_info()
 
-        print('[Info] Data File Reading Done')
-        print('[Info] Init Done')
+        print(self.Colors('[Info] Data File Reading Done', fcolor='green'))
+        print(self.Colors('[Info] Init Done', fcolor='green'))
         os.system("clear")
 
 
@@ -426,63 +427,67 @@ class OCUpdater:
         choice = choice.upper()
         self.choice = choice
 
+
+    # backup efi
+    def backup_EFI(self):
+        dist_root = sys.path[0]
+        dist_root = os.path.abspath(os.path.join(dist_root, 'backup_EFI/'))
+        if not exists(dist_root):
+            os.makedirs(dist_root)
+        now = time.time()
+        now = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(now))
+        dist = os.path.abspath(os.path.join(dist_root, now + '/EFI'))
+        source_path = os.path.abspath(os.path.join(self.root, 'EFI'))
+        shutil.copytree(source_path, dist)
+        print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
+        print("")
+        
+
     # main
     def main(self):
         # init
         self.init()
 
         # operation
-        while self.choice != 'Q' or self.mode != "main":
+        while self.choice != 'Q':
             os.system("clear")
             self.title()
             if self.choice == 'A':
-                self.mode = 'all'
                 self.output_all()
                 input("Press [Enter] to back...")
                 self.choice = ''
-                self.mode = 'main'
                 continue
 
             if self.choice == 'B':
-                self.mode = 'backup'
-                self.output_all()
+                print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
+                self.backup_EFI()
                 input("Press [Enter] to back...")
                 self.choice = ''
-                self.mode = 'main'
                 continue
 
             if self.choice == 'D':
-                self.mode = 'download'
-                print("[Info] Downloading the latest remote database...")
+                print(self.Colors("[Info] Downloading the latest remote database...", fcolor='green'))
                 self.download_database()
-                print("[Info] Download Done")
-                print("[Info] Updating remote data")
+                print(self.Colors("[Info] Download Done", fcolor='green'))
+                print(self.Colors("[Info] Updating remote data", fcolor='green'))
                 self.remote = self.get_remote_data()
-                print("[Info] Updating Done")
+                print(self.Colors("[Info] Updating Done", fcolor='green'))
                 input("Press [Enter] to back...")
                 self.choice = ''
-                self.mode = 'main'
                 continue
 
             if self.choice == 'S':
-                self.mode = 'show'
                 self.output_update()
                 input("Press [Enter] to back...")
                 self.choice = ''
-                self.mode = 'main'
                 continue
 
             if self.choice == 'U':
-                self.mode = 'update'
-                print("[Info] Downloading the latest remote database...")
-                self.download_database()
-                print("[Info] Download Done")
-                print("[Info] Updating remote data")
-                self.remote = self.get_remote_data()
-                print("[Info] Updating Done")
+                print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
+                self.backup_EFI()
+                print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
                 input("Press [Enter] to back...")
                 self.choice = ''
-                self.mode = 'main'
                 continue
 
             self.main_interface()
@@ -492,8 +497,8 @@ class OCUpdater:
         self.title()
         # unmount EFI
         res = os.popen('diskutil unmount /dev/' + self.EFI_disk).read().strip()
-        print("[Info] (EFI partition) " + res + ".")
-        print("[Info] The script is terminated.")
+        print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
+        print(self.Colors("[Info] The script is terminated.", fcolor='green'))
         exit()
 
 

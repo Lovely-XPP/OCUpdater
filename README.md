@@ -8,7 +8,8 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 - [x] Mount EFI
 - [x] Gengerate update information
 - [x] main interface
-- [ ] EFI backup & update
+- [x] EFI backup 
+- [ ] EFI update
 
 ## Support kexts
 
