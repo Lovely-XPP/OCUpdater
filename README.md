@@ -1,12 +1,13 @@
 # OpenCore_update
 ## Introduce
 
-A utility for hackintosh user to update opencore and some kexts. The script will automatically detect the local kexts or OpenCorePkg's version and compare with the remote one, then give the update  information of them.
+A utility for hackintosh user to update opencore and some kexts. The script will automatically detect the local kexts or OpenCorePkg's version and compare with the remote one, then give the update information of them.
 
 ## To Do
 
+- [x] Mount EFI
 - [x] Gengerate update information
-- [ ] main interface
+- [x] main interface
 - [ ] EFI backup & update
 
 ## Support kexts
@@ -69,15 +70,9 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 
 ## Usage
 
-Open the `update_opencore.py` and change the EFI_disk to your EFI disk identity.
+Clone the repo and run `OCupdate.command`.
 
-Tip: you can use the command below to check your EFI partition:
-
-````bash
-diskutil list
-````
-
-Tip: When you run the script, you may need to input your root password to mount the EFI patition.
+Tip: When you run the script, the script will automatically mount EFI partition without any passwords. If the process runs wrong, please create issue.
 
 ## Credits
 
