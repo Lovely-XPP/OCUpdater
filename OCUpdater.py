@@ -5,6 +5,8 @@ import os
 import time
 import copy
 import shutil
+import wget
+import zipfile
 from datetime import datetime
 from plistlib import *
 
@@ -20,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.0.12'
+        self.ver = 'V0.16'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -55,6 +57,8 @@ class OCUpdater:
             'WhateverGreen'
         ]
         self.network = False
+        self.type = 'Release'
+        self.change = {'Release': 'Debug', 'Debug': 'Release'}
         self.root = ''
         self.choice = ''
         self.local = {}
@@ -367,7 +371,14 @@ class OCUpdater:
         print(self.Colors('[Info] Reading Data File...', fcolor='green'))
 
         # get local data
-        self.local = self.get_local_data()
+        try:
+            self.local = self.get_local_data()
+        except:
+            print(self.Colors('[Error] Not OpenCore Detected, please check EFI patition', fcolor='red'))
+            print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+            print("")
+            exit()
+
 
         # get remote data
         self.remote = self.get_remote_data()
@@ -421,6 +432,7 @@ class OCUpdater:
             print("     EFI: " + self.Colors("mounted", fcolor='green'))
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
+        print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'], fcolor='green'))
         if self.network:
             print("     Network: " + self.Colors("Online", fcolor='green'))
         else:
@@ -433,13 +445,17 @@ class OCUpdater:
             print("     Local Data: " + self.Colors("loaded", fcolor='green'))
         else:
             print("     Local Data: " + self.Colors("unloaded", fcolor='red'))
+        print("     Update Type: " + self.Colors(self.type, fcolor='green'))
         print("")
         print("A. Show All Kexts Information")
         print("B. Backup EFI")
+        print("C. Change Update Type to " + self.Colors(self.change[self.type], fcolor='yellow'))
         print("D. Download and Update Remote Database")
+        print("L. Reload Local Data")
         print("R. Refresh Network Status")
         print("S. Show Update Information")
-        print("U. Update OpenCore and Kexts (Automatically Backup EFI)")
+        print("UO. Update OpenCore (Automatically Backup EFI)")
+        print("UK. Update Kexts (Automatically Backup EFI)")
         print("")
         print("Q. Quit")
         print("")
@@ -461,9 +477,38 @@ class OCUpdater:
         shutil.copytree(source_path, dist)
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
     
+
     # update EFI
-    def update_EFI(self):
-        a = 1
+    def update_OpenCore(self):
+        oc = self.update_info['OpenCorePkg']
+        tmp_root = sys.path[0]
+        tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
+        if not os.path.exists(tmp_path):
+            os.mkdir(tmp_path)
+        tmp = os.path.abspath(os.path.join(tmp_path, 'OpenCorePkg.zip'))
+        update_type = self.type
+        update_type = update_type.lower()
+
+        # download
+        print(self.Colors("[Info] Downloading OpenCorePkg...", fcolor='green'))
+        wget.download(oc[update_type]['link'], tmp)
+        print("")
+        print(self.Colors("[Info] Download Done", fcolor='green'))
+
+        # extract zip
+        print(self.Colors("[Info] Extract OpenCorePkg...", fcolor='green'))
+        tmp_path = os.path.abspath(os.path.join(tmp_path, 'OpenCorePkg/'))
+        ys = zipfile.ZipFile(tmp)
+        ys.extractall(tmp_path)
+        ys.close()
+        os.remove(tmp)
+        print(self.Colors("[Info] Extract Done", fcolor='green'))
+
+        # clean cache
+        print(self.Colors("[Info] Cleaning cache...", fcolor='green'))
+        shutil.rmtree(tmp_path)
+        print(self.Colors("[Info] Clean Done", fcolor='green'))
+
 
     # main
     def main(self):
@@ -493,13 +538,18 @@ class OCUpdater:
                 input("Press [Enter] to back...")
                 continue
 
+            if self.choice == 'C':
+                self.choice = ''
+                self.type = self.change[self.type]
+                continue
+
             if self.choice == 'D':
                 self.choice = ''
                 print("> Download and Update Remote Database")
                 print("")
                 print(self.Colors("[Info] Checking Network...", fcolor='green'))
                 self.check_network()
-                print(self.Colors("[Info] Checking Network Done", fcolor='green'))
+                print(self.Colors("[Info] Check Network Done", fcolor='green'))
                 if not self.network:
                     print(self.Colors('[Error] Network error, please check your connection to ' + self.url , fcolor='red'))
                     print(self.Colors('[Error] Update cancel because of connection error', fcolor='red'))
@@ -512,11 +562,20 @@ class OCUpdater:
                 print(self.Colors("[Info] Download Done", fcolor='green'))
                 print(self.Colors("[Info] Updating remote data", fcolor='green'))
                 self.remote = self.get_remote_data()
-                print(self.Colors("[Info] Updating Done", fcolor='green'))
+                print(self.Colors("[Info] Update Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
             
+            if self.choice == 'L':
+                self.choice = ''
+                print("> Reload Local Data")
+                print("")
+                print(self.Colors("[Info] Reloading local data...", fcolor='green'))
+                self.get_local_data()
+                print(self.Colors("[Info] Reload local data Done", fcolor='green'))
+                continue
+
             if self.choice == 'R':
                 self.choice = ''
                 print("> Refresh Network")
@@ -535,13 +594,30 @@ class OCUpdater:
                 input("Press [Enter] to back...")
                 continue
 
-            if self.choice == 'U':
+            if self.choice == 'UO':
                 self.choice = ''
-                print("> Update EFI")
+                print("> Update OpenCore")
+                print("")
+                if self.update_info['OpenCorePkg']['update'] != 1:
+                    print(self.Colors("[Info] OpenCore is up-to-date", fcolor='green'))
+                    print("")
+                    input("Press [Enter] to back...")
+                    continue
+                print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
+                self.update_OpenCore()
+                print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
+                print("")
+                input("Press [Enter] to back...")
+                continue
+
+            if self.choice == 'UK':
+                self.choice = ''
+                print("> Update Kexts")
                 print("")
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
                 print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
+                print("")
                 input("Press [Enter] to back...")
                 continue
 
@@ -564,4 +640,6 @@ if __name__ == "__main__":
     ocup = OCUpdater()
 
     # run script
-    ocup.main()
+    # ocup.main()
+    ocup.init()
+    ocup.update_OpenCore()
