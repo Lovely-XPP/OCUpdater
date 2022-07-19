@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.16'
+        self.ver = 'V0.17'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -346,6 +346,7 @@ class OCUpdater:
         except:
             self.network = False
 
+
     # init
     def init(self):
 
@@ -378,7 +379,6 @@ class OCUpdater:
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
-
 
         # get remote data
         self.remote = self.get_remote_data()
@@ -478,7 +478,7 @@ class OCUpdater:
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
     
 
-    # update EFI
+    # update OpenCore
     def update_OpenCore(self):
         oc = self.update_info['OpenCorePkg']
         tmp_root = sys.path[0]
@@ -488,6 +488,7 @@ class OCUpdater:
         tmp = os.path.abspath(os.path.join(tmp_path, 'OpenCorePkg.zip'))
         update_type = self.type
         update_type = update_type.lower()
+
 
         # download
         print(self.Colors("[Info] Downloading OpenCorePkg...", fcolor='green'))
@@ -504,9 +505,74 @@ class OCUpdater:
         os.remove(tmp)
         print(self.Colors("[Info] Extract Done", fcolor='green'))
 
+        # OpenCore.efi update
+        print(self.Colors("[Info] Updating OpenCorePkg Core...", fcolor='green'))
+        oc_efi_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/OpenCore.efi'))
+        oc_efi_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/OpenCore.efi'))
+        shutil.copy(oc_efi_update, oc_efi_source)
+        print(self.Colors("[Info] Update Core Done", fcolor='green'))
+
+        # Drivers update
+        print(self.Colors("[Info] Updating OpenCorePkg Drivers...", fcolor='green'))
+        drivers = []
+        oc_drivers_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Drivers/'))
+        oc_drivers_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Drivers/'))
+        for driver in  os.listdir(oc_drivers_update):
+            drivers.append(driver)
+        for driver in os.listdir(oc_drivers_source):
+            if driver[0] == '.':
+                continue
+            if driver not in drivers:
+                 print(self.Colors("[Warning] Driver " + driver + " is not in Official Drivers folders, update skipped", fcolor='yellow'))
+                 continue
+        print(self.Colors("[Info] Update Drivers Done", fcolor='green'))
+
+        # Tools update
+        print(self.Colors("[Info] Updating OpenCorePkg Tools...", fcolor='green'))
+        tools = []
+        oc_tools_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Tools/'))
+        oc_tools_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Tools/'))
+        for driver in  os.listdir(oc_tools_update):
+            tools.append(driver)
+        for driver in os.listdir(oc_tools_source):
+            if driver[0] == '.':
+                continue
+            if driver not in tools:
+                 print(self.Colors("[Warning] Tool " + driver + " is not in Official Tools folders, update skipped", fcolor='yellow'))
+                 continue
+        print(self.Colors("[Info] Update Tools Done", fcolor='green'))
+
+        # check plist
+        ocvalidate_path = os.path.abspath(os.path.join(tmp_path, 'Utilities/ocvalidate/ocvalidate'))
+        plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/Config.plist'))
+        if not os.path.exists(plist_path):
+            plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/config.plist'))
+        if not os.path.exists(plist_path):
+            print(self.Colors("[Warning] config plist not found, check skipped", fcolor='yellow'))
+        else:
+            os.popen('chmod 777 ' + ocvalidate_path)
+            ocvalidate_path = ocvalidate_path.replace(' ', '\ ')
+            plist_path = plist_path.replace(' ', '\ ')
+            v = os.popen(ocvalidate_path + ' ' + plist_path).read()
+            if "No issues found" in v:
+                print(self.Colors("[Info] **** Config plist check Done, No issues Found! ****", fcolor='green'))
+            else:
+                v = v.split(self.remote['OpenCorePkg']['version'] + '!')
+                v = v[1].strip()
+                v = v.split('Completed validating')
+                v1 = v[0].strip()
+                v1 = v1.replace('\n', '\n\t')
+                v1 = '\t' + v1
+                v2 = v[1].split('. Found ')
+                v2 = 'Found ' + v2[1]
+                v2 = v2.replace('.', ':')
+                print(self.Colors("[Warning] Config plist check Done, " + v2 + ' ', fcolor='yellow'))
+                print(self.Colors(v1, fcolor='yellow'))
+                print(self.Colors("[Warning] Please read instruction from the official website to update your config.plist or recover EFI from backup.", fcolor='yellow'))
+
         # clean cache
         print(self.Colors("[Info] Cleaning cache...", fcolor='green'))
-        shutil.rmtree(tmp_path)
+        # shutil.rmtree(tmp_path)
         print(self.Colors("[Info] Clean Done", fcolor='green'))
 
 
@@ -534,6 +600,7 @@ class OCUpdater:
                 print("")
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
+                print(self.Colors("[Info] EFI back up Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -598,14 +665,28 @@ class OCUpdater:
                 self.choice = ''
                 print("> Update OpenCore")
                 print("")
-                if self.update_info['OpenCorePkg']['update'] != 1:
+                if self.update_info['OpenCorePkg']['status'] == 'Up-to-date':
                     print(self.Colors("[Info] OpenCore is up-to-date", fcolor='green'))
                     print("")
                     input("Press [Enter] to back...")
                     continue
+                # check network
+                self.check_network()
+                if not self.network:
+                    print(self.Colors('[Error] Network error', fcolor='red'))
+                    print(self.Colors("[Error] OpenCore Update canceled because of network error.", fcolor='red'))
+                    print("")
+                    input("Press [Enter] to back...")
+                    continue
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
+                self.backup_EFI()
+                print(self.Colors("[Info] EFI back up Done", fcolor='green'))
+                print(self.Colors("[Info] OpenCore Update Begin", fcolor='green'))
                 self.update_OpenCore()
-                print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
+                print(self.Colors("[Info] OpenCore Update Done", fcolor='green'))
+                print(self.Colors("[Info] Reloading local data...", fcolor='green'))
+                self.get_local_data()
+                print(self.Colors("[Info] Reload local data Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -616,7 +697,7 @@ class OCUpdater:
                 print("")
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
-                print(self.Colors("[Info] EFI backing up Done", fcolor='green'))
+                print(self.Colors("[Info] EFI back up Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -640,6 +721,5 @@ if __name__ == "__main__":
     ocup = OCUpdater()
 
     # run script
-    # ocup.main()
     ocup.init()
     ocup.update_OpenCore()
