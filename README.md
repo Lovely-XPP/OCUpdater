@@ -10,7 +10,8 @@ A utility for hackintosh user to update opencore and some kexts. The script will
 - [x] Connection check
 - [x] main interface
 - [x] EFI backup 
-- [ ] EFI update
+- [x] OpenCorePkg update
+- [ ] Kexts update
 
 ## Support kexts
 
@@ -85,4 +86,6 @@ Tip: When you run the script, the script will automatically mount EFI partition 
 
 ## Credits
 
-- [Dortania](https://github.com/dortania) for provide binary and database of OpenCorePkg with some kexts in [build-repo](https://github.com/dortania/build-repo/tree/builds).
+- [Dortania](https://github.com/dortania) for provide binary and database of OpenCorePkg with main kexts in [build-repo](https://github.com/dortania/build-repo/tree/builds).
+
+- [Acidanthera](https://github.com/Acidanthera) for OpenCorePkg and main kexts.
