@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.19'
+        self.ver = 'V0.20'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -418,18 +418,19 @@ class OCUpdater:
         print(self.Colors("[Info] Time Format: UTC \n", fcolor='green'))
         for i in self.local.keys():
             cg = self.update_info[i]
-            if i == "OpenCorePkg":
-                print(i + ":")
-                print("   OpenCore:      \t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
-                print("")
-                continue
-            if first_time == 0:
-                print("Kexts:")
-                first_time = 1
-            if len(i) < 11:
-                print("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
-            else: 
-                print("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+            if cg['status'] == "Update Available":
+                if i == "OpenCorePkg":
+                    print(i + ":")
+                    print("   OpenCore:      \t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+                    print("")
+                    continue
+                if first_time == 0:
+                    print("Kexts:")
+                    first_time = 1
+                if len(i) < 11:
+                    print("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
+                else: 
+                    print("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
 
 
     # title
@@ -716,7 +717,7 @@ class OCUpdater:
                 self.choice = ''
                 print("> Update OpenCore")
                 print("")
-                if self.update_info['OpenCorePkg']['status'] == 'Up-to-date':
+                if self.update[0] == 0:
                     print(self.Colors("[Info] OpenCore is up-to-date", fcolor='green'))
                     print("")
                     input("Press [Enter] to back...")
@@ -735,9 +736,10 @@ class OCUpdater:
                 print(self.Colors("[Info] OpenCore Update Begin", fcolor='green'))
                 self.update_OpenCore()
                 print(self.Colors("[Info] OpenCore Update Done", fcolor='green'))
-                print(self.Colors("[Info] Reloading local data...", fcolor='green'))
-                self.get_local_data()
-                print(self.Colors("[Info] Reload local data Done", fcolor='green'))
+                print(self.Colors("[Info] Updating data...", fcolor='green'))
+                self.local = self.get_local_data()
+                self.update_info = self.gen_update_info()
+                print(self.Colors("[Info] Update data Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -746,8 +748,8 @@ class OCUpdater:
                 self.choice = ''
                 print("> Update Kexts")
                 print("")
-                if self.update_info['OpenCorePkg']['status'] == 'Up-to-date':
-                    print(self.Colors("[Info] OpenCore is up-to-date", fcolor='green'))
+                if self.update[1] == 0:
+                    print(self.Colors("[Info] All Installed Kexts is up-to-date", fcolor='green'))
                     print("")
                     input("Press [Enter] to back...")
                     continue
@@ -762,6 +764,11 @@ class OCUpdater:
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
                 print(self.Colors("[Info] EFI back up Done", fcolor='green'))
+                self.update_kexts()
+                print(self.Colors("[Info] Updating data...", fcolor='green'))
+                self.local = self.get_local_data()
+                self.update_info = self.gen_update_info()
+                print(self.Colors("[Info] Update data Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
