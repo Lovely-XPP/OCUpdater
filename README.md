@@ -83,7 +83,7 @@ pip3 install -r requirements.txt
 
 - Run `OCUpdater.command`.
 
-Tip: When you run the script, the script will automatically mount EFI partition without any passwords. If the process runs wrong, please create issue.
+Tip: When you run the script, the script will prompt you for password to mount EFI partition. If the process runs wrong, please create issue.
 
 ## Credits
 
