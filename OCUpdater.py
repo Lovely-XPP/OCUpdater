@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.17'
+        self.ver = 'V0.19'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -56,6 +56,7 @@ class OCUpdater:
             'VoodooRMI',
             'WhateverGreen'
         ]
+        self.password = ""
         self.network = False
         self.type = 'Release'
         self.change = {'Release': 'Debug', 'Debug': 'Release'}
@@ -64,6 +65,7 @@ class OCUpdater:
         self.local = {}
         self.remote = {}
         self.update_info = {}
+        self.update = [0, 0]
 
     # set text format
     def Colors(self, text, fcolor=None, bcolor=None, style=None):
@@ -277,6 +279,7 @@ class OCUpdater:
 
     # generate update information
     def gen_update_info(self):
+        update = [0, 0]
         update_info = copy.deepcopy(self.remote)
         for key in update_info.keys():
             update_info[key].pop('time')
@@ -295,9 +298,14 @@ class OCUpdater:
             if key != "OpenCorePkg":
                 update_info[key]['kexts'] = self.local[key]['kexts']
             if res == 1:
+                if key == "OpenCorePkg":
+                    update[0] = 1
+                else:
+                    update[1] = update[1] + 1
                 update_info[key]['status'] = "Update Available"
                 continue
             update_info[key]['status'] = "Up-to-date"
+        self.update = update
         return update_info
 
 
@@ -328,7 +336,18 @@ class OCUpdater:
         out = out.split('\n')[0]
         out = out.split('disk')[1]
         self.EFI_disk = 'disk' + out.strip()
-        out = os.popen('diskutil mount /dev/' + self.EFI_disk).read()
+        self.title()
+        print("")
+        self.password = input("Please Input your Password to mount EFI: ").strip()
+        test = os.popen('echo ' + self.password + ' | sudo -S echo 2').read()
+        if test != "2":
+            os.system("clear")
+            print("")
+            print(self.Colors('[Error] Wrong Password' + self.url , fcolor='red'))
+            print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+            print("")
+        os.system("clear")
+        out = os.popen('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk).read()
         out = out.strip()
         out = out.split('on')
         out = out[0]
@@ -350,10 +369,12 @@ class OCUpdater:
     # init
     def init(self):
 
-        print(self.Colors('[Info] Preparing for running...', fcolor='green'))
-
         # mount EFI and get EFI partition name
         self.mount_EFI()
+
+        # print title
+        self.title()
+        print(self.Colors('[Info] Preparing for running...', fcolor='green'))
 
         # check network
         self.check_network()
@@ -432,7 +453,14 @@ class OCUpdater:
             print("     EFI: " + self.Colors("mounted", fcolor='green'))
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
-        print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'], fcolor='green'))
+        if not self.update[0]:
+            print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'] + " [Up-to-date]", fcolor='green'))
+        else:
+            print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'], fcolor='green') + self.Colors(" [Update Available]", fcolor='yellow'))
+        if not self.update[1]:
+            print("     Kexts: " + self.Colors("Up-to-date", fcolor='green'))
+        else:
+            print("     Kexts: " + self.Colors(str(self.update[1]) + " Update Available", fcolor='yellow'))
         if self.network:
             print("     Network: " + self.Colors("Online", fcolor='green'))
         else:
@@ -451,7 +479,7 @@ class OCUpdater:
         print("B. Backup EFI")
         print("C. Change Update Type to " + self.Colors(self.change[self.type], fcolor='yellow'))
         print("D. Download and Update Remote Database")
-        print("L. Reload Local Data")
+        print("L. Reload Data")
         print("R. Refresh Network Status")
         print("S. Show Update Information")
         print("UO. Update OpenCore (Automatically Backup EFI)")
@@ -466,6 +494,7 @@ class OCUpdater:
 
     # backup EFI
     def backup_EFI(self):
+        err = 0
         dist_root = sys.path[0]
         dist_root = os.path.abspath(os.path.join(dist_root, 'backup_EFI/'))
         if not os.path.exists(dist_root):
@@ -474,7 +503,19 @@ class OCUpdater:
         now = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(now))
         dist = os.path.abspath(os.path.join(dist_root, now + '/EFI'))
         source_path = os.path.abspath(os.path.join(self.root, 'EFI'))
-        shutil.copytree(source_path, dist)
+        try:
+            shutil.copytree(source_path, dist)
+        except shutil.Error as errs:
+            err = 0
+            errors = errs.args[0]
+            for error in errors:
+                src, dst, msg = error
+                msg = msg.split(']')
+                msg = msg[1].strip()
+                print(self.Colors("[Error] " + msg + ": " + src, fcolor='red'))
+        if err:
+            print(self.Colors("[Warning] EFI is successfully backup to: " + dist + ", but some files not copied because of errors.", fcolor='yellow'))
+            return 
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
     
 
@@ -488,7 +529,6 @@ class OCUpdater:
         tmp = os.path.abspath(os.path.join(tmp_path, 'OpenCorePkg.zip'))
         update_type = self.type
         update_type = update_type.lower()
-
 
         # download
         print(self.Colors("[Info] Downloading OpenCorePkg...", fcolor='green'))
@@ -576,8 +616,16 @@ class OCUpdater:
         print(self.Colors("[Info] Clean Done", fcolor='green'))
 
 
+    # update kexts
+    def update_kexts():
+        update = 0
+
+
     # main
     def main(self):
+        # clear
+        os.system('clear')
+
         # init
         self.init()
 
@@ -629,6 +677,7 @@ class OCUpdater:
                 print(self.Colors("[Info] Download Done", fcolor='green'))
                 print(self.Colors("[Info] Updating remote data", fcolor='green'))
                 self.remote = self.get_remote_data()
+                self.update_info = self.gen_update_info()
                 print(self.Colors("[Info] Update Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
@@ -636,10 +685,12 @@ class OCUpdater:
             
             if self.choice == 'L':
                 self.choice = ''
-                print("> Reload Local Data")
+                print("> Reload Data")
                 print("")
                 print(self.Colors("[Info] Reloading local data...", fcolor='green'))
-                self.get_local_data()
+                self.remote = self.get_remote_data()
+                self.local = self.get_local_data()
+                self.update_info = self.gen_update_info()
                 print(self.Colors("[Info] Reload local data Done", fcolor='green'))
                 continue
 
@@ -695,6 +746,19 @@ class OCUpdater:
                 self.choice = ''
                 print("> Update Kexts")
                 print("")
+                if self.update_info['OpenCorePkg']['status'] == 'Up-to-date':
+                    print(self.Colors("[Info] OpenCore is up-to-date", fcolor='green'))
+                    print("")
+                    input("Press [Enter] to back...")
+                    continue
+                # check network
+                self.check_network()
+                if not self.network:
+                    print(self.Colors('[Error] Network error', fcolor='red'))
+                    print(self.Colors("[Error] Kexts Update canceled because of network error.", fcolor='red'))
+                    print("")
+                    input("Press [Enter] to back...")
+                    continue
                 print(self.Colors("[Info] EFI folder is backing up...", fcolor='green'))
                 self.backup_EFI()
                 print(self.Colors("[Info] EFI back up Done", fcolor='green'))
@@ -708,7 +772,7 @@ class OCUpdater:
         os.system("clear")
         self.title()
         # unmount EFI
-        res = os.popen('diskutil unmount /dev/' + self.EFI_disk).read().strip()
+        res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + self.EFI_disk).read().strip()
         print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
         print(self.Colors("[Info] The script is terminated.", fcolor='green'))
         print("")
@@ -721,5 +785,4 @@ if __name__ == "__main__":
     ocup = OCUpdater()
 
     # run script
-    ocup.init()
-    ocup.update_OpenCore()
+    ocup.main()
