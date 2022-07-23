@@ -1,5 +1,5 @@
 import json
-import sys
+import sys, tty, termios 
 import requests
 import os
 import time
@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V0.20'
+        self.ver = 'V1.21'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -110,7 +110,42 @@ class OCUpdater:
         if style in st:
             text = st[style] + text + fg['end']
         return text
-    
+
+
+    # get input
+    def getch(self):
+        fd = sys.stdin.fileno() 
+        old_settings = termios.tcgetattr(fd) 
+        try: 
+            tty.setraw(sys.stdin.fileno()) 
+            ch = sys.stdin.read(1) 
+        finally: 
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings) 
+        return ch 
+
+
+    # password hide
+    def getpass(self): 
+        password = "" 
+        nums = 0
+        max_nums = 0
+        while True: 
+            ch = self.getch() 
+            if ch == "\r" or ch == "\n": 
+                return password 
+            elif ch == "\b" or ord(ch) == 127: 
+                if nums > 0: 
+                    nums -= 1
+                    password = password[:-1] 
+                    # clean and rewrite * num
+                    print("\r" + " "*max_nums + "\n\033[A" + "*"*nums, end="", flush=True)
+            else: 
+                nums += 1
+                if nums > max_nums:
+                    max_nums = nums
+                password += ch
+                print("\r" + "*"*nums, end="", flush=True)
+
 
     # get file modified time
     def get_time(self, filename):
@@ -338,7 +373,8 @@ class OCUpdater:
         self.EFI_disk = 'disk' + out.strip()
         self.title()
         print("")
-        self.password = input("Please Input your Password to mount EFI: ").strip()
+        print("Please Input your Password to mount EFI: ")
+        self.password = self.getpass()
         test = os.popen('echo ' + self.password + ' | sudo -S echo 2').read()
         if test != "2":
             os.system("clear")
@@ -613,13 +649,142 @@ class OCUpdater:
 
         # clean cache
         print(self.Colors("[Info] Cleaning cache...", fcolor='green'))
-        # shutil.rmtree(tmp_path)
+        shutil.rmtree(tmp_path)
         print(self.Colors("[Info] Clean Done", fcolor='green'))
 
 
+    # update interface
+    def update_interface(self, kext, progress):
+        os.system('clear')
+        self.title()
+        print("")
+        print("> Update Kexts Package")
+        print("")
+        progress1 = progress[0] + 1
+        ratio = float(progress1*4 + progress[1] - 4)/self.update[1]/4
+        sym_nums = 60
+        sym_progress = int(sym_nums*ratio)
+        space = sym_nums - sym_progress
+        print("[" + str(progress1-1) +"/" + str(self.update[1]) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
+        print("")
+        print("Updating Kext Package: " + self.Colors(kext, fcolor='yellow') + "\n" + "These kext(s) will be update: ")
+        for k in self.update_info[kext]['kexts']:
+            print(self.Colors("\t" + k, fcolor='yellow'))
+        print("")
+        progress2 = progress[1]
+        if progress2 >= 0:
+            print(self.Colors("[Info] Downloading Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 1:
+            print(self.Colors("[Info] Download Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Extracting Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 2:
+            print(self.Colors("[Info] Extract Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Updating Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 3:
+            print(self.Colors("[Info] Update Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Cleaning Cache: " + kext, fcolor='green'))
+        if progress2 >= 4:
+            print(self.Colors("[Info] Clean Cache: " + kext + " Done", fcolor='green'))
+
+
     # update kexts
-    def update_kexts():
-        update = 0
+    def update_kexts(self):
+        tmp_root = sys.path[0]
+        tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
+        if not os.path.exists(tmp_path):
+            os.mkdir(tmp_path)
+        tmp_path = os.path.abspath(os.path.join(tmp_path, 'Kexts/'))
+        if not os.path.exists(tmp_path):
+            os.mkdir(tmp_path)
+        progress = [0, 0]
+        err = []
+        for kext in self.local.keys():
+            cg = self.update_info[kext]
+            if kext == "OpenCorePkg":
+                continue
+            if cg['status'] != "Update Available":
+                continue
+            progress[0] = progress[0] + 1
+            progress[1] = 0
+            self.update_interface(kext, progress)
+
+            try:
+                tmp = os.path.abspath(os.path.join(tmp_path, kext + '.zip'))
+                update_type = self.type
+                update_type = update_type.lower()
+                wget.download(self.update_info[kext][update_type]['link'], tmp)
+                progress[1] = progress[1] + 1
+            except ArithmeticError:
+                err.append(progress[0])
+                continue
+            self.update_interface(kext, progress)
+
+            try:
+                tmp_path0 = os.path.abspath(os.path.join(tmp_path,  kext + '/'))
+                ys = zipfile.ZipFile(tmp)
+                ys.extractall(tmp_path0)
+                ys.close()
+                os.remove(tmp)
+                progress[1] = progress[1] + 1
+            except ArithmeticError:
+                err.append(progress[0])
+                continue
+            self.update_interface(kext, progress)
+
+            try:
+                for k in self.update_info[kext]['kexts']:
+                    source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts/' + k))
+                    update = tmp_path0
+                    source = source.replace(' ', '\ ')
+                    os.system('cp -rf ' + update + ' ' + source)
+                progress[1] = progress[1] + 1
+            except ArithmeticError:
+                err.append(progress[0])
+                continue
+            
+            try:
+                shutil.rmtree(tmp_path0)
+                progress[1] = progress[1] + 1
+            except ArithmeticError:
+                err.append(progress[0])
+                continue
+            self.update_interface(kext, progress)
+        
+        os.system('clear')
+        self.title()
+        first_time = 0
+        item = 0
+        for i in self.local.keys():
+            item = item + 1
+            cg = self.update_info[i]
+            if cg['status'] == "Update Available" and (item not in err):
+                if first_time == 0:
+                    if len(err) > 0:
+                        print(self.Colors("These Kext Package(s) Update Successfully:", fcolor='magenta'))
+                    else:
+                        print(self.Colors("All Kext Packages Update Successfully:", fcolor='magenta'))
+                    first_time = 1
+                if len(i) < 11:
+                    print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+                else: 
+                    print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+        if len(err) > 0:
+            print("")
+            first_time = 0
+            item = 0
+            for i in self.local.keys():
+                item = item + 1
+                cg = self.update_info[i]
+                if cg['status'] == "Update Available" and (item not in err):
+                    if first_time == 0:
+                        print(self.Colors("These Kext Package(s) Update Unsuccessfully:", fcolor='red'))
+                        first_time = 1
+                    if len(i) < 11:
+                        print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+                    else: 
+                        print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
+                              '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+
 
 
     # main
