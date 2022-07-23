@@ -12,7 +12,7 @@ Utility for hackintosh user to update opencore and some kexts. The script will a
 - [x] main interface
 - [x] EFI backup 
 - [x] OpenCorePkg update
-- [ ] config.plist update
+- [x] config.plist automatically update with OpenCore update
 - [x] Kexts update
 
 ## Support kexts
