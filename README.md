@@ -1,18 +1,19 @@
 # OCUpdater
 ## Introduce
 
-A utility for hackintosh user to update opencore and some kexts. The script will automatically detect the local kexts or OpenCorePkg's version and compare with the remote one, then give the update information of them.
+Utility for hackintosh user to update opencore and some kexts. The script will automatically detect the local kexts or OpenCorePkg's version and compare with the remote one, then give the update information of them.
 
 ## To Do
 
 - [x] Mount EFI
+- [x] Hide Password Input
 - [x] Gengerate update information
 - [x] Connection check
 - [x] main interface
 - [x] EFI backup 
 - [x] OpenCorePkg update
 - [ ] config.plist update
-- [ ] Kexts update
+- [x] Kexts update
 
 ## Support kexts
 
