@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.21'
+        self.ver = 'V1.23'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -66,6 +66,7 @@ class OCUpdater:
         self.remote = {}
         self.update_info = {}
         self.update = [0, 0]
+
 
     # set text format
     def Colors(self, text, fcolor=None, bcolor=None, style=None):
@@ -372,7 +373,6 @@ class OCUpdater:
         out = out.split('disk')[1]
         self.EFI_disk = 'disk' + out.strip()
         self.title()
-        print("")
         print("Please Input your Password to mount EFI: ")
         self.password = self.getpass()
         test = os.popen('echo ' + self.password + ' | sudo -S echo 2').read()
@@ -393,7 +393,7 @@ class OCUpdater:
         self.root = EFI_root
 
 
-    # check network to remote data
+    # check network
     def check_network(self):
         try:
             res = requests.get(self.url)
@@ -556,6 +556,60 @@ class OCUpdater:
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
     
 
+    # update config
+    def update_oc_config(self, update_config, source_config, save_config):
+        del_keys = []
+        del_platform_info = []
+
+        # read update plist
+        with open(update_config, 'rb') as pl:
+            custom_plist = load(pl)
+            up_plist = copy.deepcopy(custom_plist)
+        # read source plist
+        with open(source_config, 'rb') as pl:
+            source_plist = load(pl)
+            src_plist = copy.deepcopy(source_plist)
+
+        # clean warning section
+        for key in up_plist.keys():
+            if key[0] == '#':
+                del_keys.append(key)
+                continue
+        for del_key in del_keys:
+            up_plist.pop(del_key)
+        
+        for key in up_plist.keys():
+            for key2 in up_plist[key].keys():
+                if key2 == "Add" or key2 == "Delete" or key2 == "Patch":
+                    up_plist[key][key2] = src_plist[key][key2]
+                    continue
+                try:
+                    if key == "PlatformInfo":
+                        if key2 in src_plist[key].keys():
+                            up_plist[key][key2] = src_plist[key][key2]
+                            continue
+                        del_platform_info.append(key2)
+                        continue
+                    for key3 in up_plist[key][key2].keys():
+                        try:
+                            up_plist[key][key2][key3] = src_plist[key][key2][key3]
+                        except:
+                            continue
+                except:
+                    try:
+                        up_plist[key][key2] = src_plist[key][key2]
+                    except:
+                        continue
+                
+        # delete no need platform information
+        for platform_info in del_platform_info:
+            up_plist["PlatformInfo"].pop(platform_info)
+        
+        # save new config
+        with open(save_config, 'wb') as new_plist:
+            dump(up_plist, new_plist, fmt=FMT_XML, sort_keys=True, skipkeys=False)
+
+
     # update OpenCore
     def update_OpenCore(self):
         oc = self.update_info['OpenCorePkg']
@@ -627,25 +681,35 @@ class OCUpdater:
         if not os.path.exists(plist_path):
             print(self.Colors("[Warning] config plist not found, check skipped", fcolor='yellow'))
         else:
-            os.popen('chmod 777 ' + ocvalidate_path)
-            ocvalidate_path = ocvalidate_path.replace(' ', '\ ')
-            plist_path = plist_path.replace(' ', '\ ')
-            v = os.popen(ocvalidate_path + ' ' + plist_path).read()
+            os.popen('chmod +x ' + ocvalidate_path)
+            ocvalidate_path_sys = ocvalidate_path.replace(' ', '\ ')
+            plist_path_sys = plist_path.replace(' ', '\ ')
+            v = os.popen(ocvalidate_path_sys + ' ' + plist_path_sys).read()
             if "No issues found" in v:
                 print(self.Colors("[Info] **** Config plist check Done, No issues Found! ****", fcolor='green'))
             else:
-                v = v.split(self.remote['OpenCorePkg']['version'] + '!')
-                v = v[1].strip()
-                v = v.split('Completed validating')
-                v1 = v[0].strip()
-                v1 = v1.replace('\n', '\n\t')
-                v1 = '\t' + v1
-                v2 = v[1].split('. Found ')
-                v2 = 'Found ' + v2[1]
-                v2 = v2.replace('.', ':')
-                print(self.Colors("[Warning] Config plist check Done, " + v2 + ' ', fcolor='yellow'))
-                print(self.Colors(v1, fcolor='yellow'))
-                print(self.Colors("[Warning] Please read instruction from the official website to update your config.plist or recover EFI from backup.", fcolor='yellow'))
+                update_config = os.path.abspath(os.path.join(sys.path[0], "cache/OpenCorePkg/Docs/SampleCustom.plist"))
+                source_config = plist_path
+                save_config = os.path.abspath(os.path.join(sys.path[0], "cache/OpenCorePkg/Config.plist"))
+                self.update_oc_config(update_config, source_config, save_config)
+                shutil.copy(save_config, source_config)
+                v2 = os.popen(ocvalidate_path_sys + ' ' + save_config.replace(' ', '\ ')).read()
+                if "No issues found" in v2:
+                    print(self.Colors("[Info] **** Config update automatically and check Done, No issues Found! ****", fcolor='green'))
+                    print(self.Colors("[Warning] **** Automatically plist update is not reliable all the time, please check and save your backup EFI in backup_EFI folder ****", fcolor='yellow'))
+                else:
+                    v = v2.split(self.remote['OpenCorePkg']['version'] + '!')
+                    v = v[1].strip()
+                    v = v.split('Completed validating')
+                    v1 = v[0].strip()
+                    v1 = v1.replace('\n', '\n\t')
+                    v1 = '\t' + v1
+                    v2 = v[1].split('. Found ')
+                    v2 = 'Found ' + v2[1]
+                    v2 = v2.replace('.', ':')
+                    print(self.Colors("[Error] Config plist update automatically and check Done, Errors still occur: " + v2 + ' ', fcolor='red'))
+                    print(self.Colors(v1, fcolor='yellow'))
+                    print(self.Colors("[Warning] Please read instruction from the official website to update your config.plist or recover EFI from backup.", fcolor='yellow'))
 
         # clean cache
         print(self.Colors("[Info] Cleaning cache...", fcolor='green'))
@@ -714,7 +778,7 @@ class OCUpdater:
                 update_type = update_type.lower()
                 wget.download(self.update_info[kext][update_type]['link'], tmp)
                 progress[1] = progress[1] + 1
-            except ArithmeticError:
+            except:
                 err.append(progress[0])
                 continue
             self.update_interface(kext, progress)
@@ -726,26 +790,27 @@ class OCUpdater:
                 ys.close()
                 os.remove(tmp)
                 progress[1] = progress[1] + 1
-            except ArithmeticError:
+            except:
                 err.append(progress[0])
                 continue
             self.update_interface(kext, progress)
 
             try:
                 for k in self.update_info[kext]['kexts']:
-                    source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts/' + k))
-                    update = tmp_path0
+                    source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts/'))
+                    update = os.path.abspath(os.path.join(tmp_path0, k))
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
+                    input()
                 progress[1] = progress[1] + 1
-            except ArithmeticError:
+            except:
                 err.append(progress[0])
                 continue
             
             try:
                 shutil.rmtree(tmp_path0)
                 progress[1] = progress[1] + 1
-            except ArithmeticError:
+            except:
                 err.append(progress[0])
                 continue
             self.update_interface(kext, progress)
