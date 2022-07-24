@@ -22,7 +22,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.23'
+        self.ver = 'V1.24'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -169,7 +169,7 @@ class OCUpdater:
     # compare time
     def compare_time(self, t1, t2):
         res = 0
-        if t2[-1] > t1[-1]:
+        if t2[-1] - t1[-1] > 600:
             res = 1
         return res
 
@@ -801,7 +801,6 @@ class OCUpdater:
                     update = os.path.abspath(os.path.join(tmp_path0, k))
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
-                    input()
                 progress[1] = progress[1] + 1
             except:
                 err.append(progress[0])
@@ -840,7 +839,7 @@ class OCUpdater:
             for i in self.local.keys():
                 item = item + 1
                 cg = self.update_info[i]
-                if cg['status'] == "Update Available" and (item not in err):
+                if cg['status'] == "Update Available" and (item in err):
                     if first_time == 0:
                         print(self.Colors("These Kext Package(s) Update Unsuccessfully:", fcolor='red'))
                         first_time = 1
