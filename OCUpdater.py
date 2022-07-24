@@ -16,46 +16,18 @@ class OCUpdater:
         # Verify running os
         if not sys.platform.lower() == "darwin":
             print("")
-            print(self.Colors("[Error] OpenCore Update can only be run on macOS!", fcolor='red'))
+            print(self.Colors("[Error] OpenCore Update can only run on macOS!", fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.24'
+        self.ver = 'V1.25'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
-        self.kexts_list = [
-            'OpenCorePkg',
-            'AirportBrcmFixup',
-            'AppleALC',
-            'BT4LEContinuityFixup',
-            'BrcmPatchRAM',
-            'BrightnessKeys',
-            'CPUFriend',
-            'CpuTopologySync',
-            'CpuTscSync',
-            'DebugEnhancer',
-            'ECEnabler',
-            'FeatureUnlock',
-            'HibernationFixup',
-            'IntelMausi',
-            'Lilu',
-            'MacHyperVSupport',
-            'NVMeFix',
-            'NoTouchID',
-            'RTCMemoryFixup',
-            'RealtekRTL8111',
-            'RestrictEvents',
-            'UEFIGraphicsFB',
-            'VirtualSMC',
-            'VoodooInput',
-            'VoodooPS2',
-            'VoodooPS2-Alps',
-            'VoodooRMI',
-            'WhateverGreen'
-        ]
+        self.bootloader = ""
+        self.kexts_list = []
         self.password = ""
         self.network = False
         self.type = 'Release'
@@ -177,7 +149,6 @@ class OCUpdater:
     # get local data
     def get_local_data(self):
         local = {}
-        first_time1 = 0
         first_time2 = 0
 
         # OpenCore
@@ -187,7 +158,7 @@ class OCUpdater:
         oc_ver = oc_ver[0:3]
         ver = oc_ver[0] + '.' + oc_ver[1] + '.' + oc_ver[2]
         time = self.get_time(oc)
-        local['OpenCorePkg'] = {'time': time, 'version': ver}
+        local[self.bootloader] = {'time': time, 'version': ver}
 
         # kexts
         for kext in os.listdir(os.path.join(self.root, 'EFI/OC/Kexts')):
@@ -196,9 +167,26 @@ class OCUpdater:
             domain = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts'))
             kext_full = os.path.join(domain, kext)
 
+            # IntelBluetoothFirmware
+            if kext0[0:14] == 'IntelBluetooth' or kext0 == 'IntelBTPatcher':
+                try:
+                    local['IntelBluetoothFirmware']['kexts'].append(kext)
+                except:
+                    plist = os.path.join(kext_full, 'Contents/Info.plist')
+                    with open(plist, 'rb') as pl:
+                        plist = load(pl)
+                        ver = plist['CFBundleVersion']
+                        pl.close()
+                    time = self.get_time(kext_full)
+                    local['IntelBluetoothFirmware'] = {'time': time, 'version': ver, 'kexts': [kext]}
+                continue
+                
+
             # BrcmPatchRAM
             if kext0[0:4] == 'Brcm' or kext0 == 'BlueToolFixup':
-                if first_time1 == 0:
+                try:
+                    local['BrcmPatchRAM']['kexts'].append(kext)
+                except:
                     plist = os.path.join(kext_full, 'Contents/Info.plist')
                     with open(plist, 'rb') as pl:
                         plist = load(pl)
@@ -206,14 +194,13 @@ class OCUpdater:
                         pl.close()
                     time = self.get_time(kext_full)
                     local['BrcmPatchRAM'] = {'time': time, 'version': ver, 'kexts': [kext]}
-                    first_time1 = 1
-                    continue
-                local['BrcmPatchRAM']['kexts'].append(kext)
                 continue
 
             # VirtualSMC
             if kext0[0:3] == 'SMC' or kext0[-3:-1] == 'SMC':
-                if first_time2 == 0:
+                try: 
+                    local['VirtualSMC']['kexts'].append(kext)
+                except:
                     plist = os.path.join(kext_full, 'Contents/Info.plist')
                     with open(plist, 'rb') as pl:
                         plist = load(pl)
@@ -221,9 +208,6 @@ class OCUpdater:
                         pl.close()
                     time = self.get_time(kext_full)
                     local['VirtualSMC'] = {'time': time, 'version': ver, 'kexts': [kext]}
-                    first_time2 = 1
-                    continue
-                local['VirtualSMC']['kexts'].append(kext)
                 continue
             
             # VoodooPS2
@@ -260,13 +244,30 @@ class OCUpdater:
             f.close
 
 
+    # get kexts list
+    def get_kexts_list(self):
+        with open(self.path, 'r') as f:
+            row_data = json.load(f)
+            f.close()
+        for key in row_data.keys():
+            try:
+                if row_data[key]['type'].lower() == "bootloader":
+                    self.bootloader = key
+                if row_data[key]['type'].lower() == "kext":
+                    self.kexts_list.append(key)
+            except:
+                continue
+
+
     # get remote data
     def get_remote_data(self):
         remote = {}
         with open(self.path, 'r') as f:
             row_data = json.load(f)
             f.close()
-        for i in self.kexts_list:
+        list = self.kexts_list.copy()
+        list.append(self.bootloader)
+        for i in list:
             release = {}
             debug = {}
 
@@ -331,10 +332,10 @@ class OCUpdater:
             res = self.compare_time(time1, time2)
             update_info[key]['local_time'] = time1
             update_info[key]['local_version'] = self.local[key]['version']
-            if key != "OpenCorePkg":
+            if key != self.bootloader:
                 update_info[key]['kexts'] = self.local[key]['kexts']
             if res == 1:
-                if key == "OpenCorePkg":
+                if key == self.bootloader:
                     update[0] = 1
                 else:
                     update[1] = update[1] + 1
@@ -356,7 +357,7 @@ class OCUpdater:
                 print("     [Local Version]   " + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')')
             else:
                 print("     [Local Version]   " + "None")
-            if i == "OpenCorePkg":
+            if i == self.bootloader:
                 print("     [Status]  " + cg['status'] + '\n')
                 continue
             print("     [Installed Kexts]   ")
@@ -376,12 +377,14 @@ class OCUpdater:
         print("Please Input your Password to mount EFI: ")
         self.password = self.getpass()
         test = os.popen('echo ' + self.password + ' | sudo -S echo 2').read()
+        test = test.strip()
         if test != "2":
             os.system("clear")
-            print("")
-            print(self.Colors('[Error] Wrong Password' + self.url , fcolor='red'))
+            self.title()
+            print(self.Colors('[Error] Wrong Password', fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
+            exit()
         os.system("clear")
         out = os.popen('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk).read()
         out = out.strip()
@@ -428,6 +431,9 @@ class OCUpdater:
         print(self.Colors('[Info] Data File Found...', fcolor='green'))
         print(self.Colors('[Info] Reading Data File...', fcolor='green'))
 
+        # get kexts list
+        self.get_kexts_list()
+
         # get local data
         try:
             self.local = self.get_local_data()
@@ -451,11 +457,14 @@ class OCUpdater:
     # update info output
     def output_update(self):
         first_time = 0
+        if self.update[0] + self.update[1] == 0:
+            print(self.Colors("[Info] OpenCore Pkg and All Installed Kexts are up-to-date.", fcolor='green'))
+            return
         print(self.Colors("[Info] Time Format: UTC \n", fcolor='green'))
         for i in self.local.keys():
             cg = self.update_info[i]
             if cg['status'] == "Update Available":
-                if i == "OpenCorePkg":
+                if i == self.bootloader:
                     print(i + ":")
                     print("   OpenCore:      \t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')')
                     print("")
@@ -491,9 +500,9 @@ class OCUpdater:
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
         if not self.update[0]:
-            print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'] + " [Up-to-date]", fcolor='green'))
+            print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'] + " [Up-to-date]", fcolor='green'))
         else:
-            print("     OpenCore: " + self.Colors("Detected, " + self.local['OpenCorePkg']['version'], fcolor='green') + self.Colors(" [Update Available]", fcolor='yellow'))
+            print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'], fcolor='green') + self.Colors(" [Update Available]", fcolor='yellow'))
         if not self.update[1]:
             print("     Kexts: " + self.Colors("Up-to-date", fcolor='green'))
         else:
@@ -612,7 +621,7 @@ class OCUpdater:
 
     # update OpenCore
     def update_OpenCore(self):
-        oc = self.update_info['OpenCorePkg']
+        oc = self.update_info[self.bootloader]
         tmp_root = sys.path[0]
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
@@ -698,7 +707,7 @@ class OCUpdater:
                     print(self.Colors("[Info] **** Config update automatically and check Done, No issues Found! ****", fcolor='green'))
                     print(self.Colors("[Warning] **** Automatically plist update is not reliable all the time, please check and save your backup EFI in backup_EFI folder ****", fcolor='yellow'))
                 else:
-                    v = v2.split(self.remote['OpenCorePkg']['version'] + '!')
+                    v = v2.split(self.remote[self.bootloader]['version'] + '!')
                     v = v[1].strip()
                     v = v.split('Completed validating')
                     v1 = v[0].strip()
@@ -764,7 +773,7 @@ class OCUpdater:
         err = []
         for kext in self.local.keys():
             cg = self.update_info[kext]
-            if kext == "OpenCorePkg":
+            if kext == self.bootloader:
                 continue
             if cg['status'] != "Update Available":
                 continue
