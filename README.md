@@ -19,7 +19,7 @@ Utility for hackintosh user to update opencore and some kexts. The script will a
 
 - [x] OpenCorePkg
 
-- [x] AirportBrcmFixup,
+- [x] AirportBrcmFixup
 
 - [x] AppleALC
 
@@ -44,6 +44,8 @@ Utility for hackintosh user to update opencore and some kexts. The script will a
 - [x] HibernationFixup
 
 - [x] IntelMausi
+
+- [x] IntelBluetoothFirmware
 
 - [x] Lilu
 
