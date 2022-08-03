@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.25'
+        self.ver = 'V1.26'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -171,12 +171,12 @@ class OCUpdater:
                 try:
                     local['IntelBluetoothFirmware']['kexts'].append(kext)
                 except:
-                    plist = os.path.join(kext_full, 'Contents/Info.plist')
-                    with open(plist, 'rb') as pl:
+                    plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+                    with open(plist_name, 'rb') as pl:
                         plist = load(pl)
                         ver = plist['CFBundleVersion']
                         pl.close()
-                    time = self.get_time(kext_full)
+                    time = self.get_time(plist_name)
                     local['IntelBluetoothFirmware'] = {'time': time, 'version': ver, 'kexts': [kext]}
                 continue
 
@@ -186,12 +186,12 @@ class OCUpdater:
                 try:
                     local['BrcmPatchRAM']['kexts'].append(kext)
                 except:
-                    plist = os.path.join(kext_full, 'Contents/Info.plist')
-                    with open(plist, 'rb') as pl:
+                    plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+                    with open(plist_name, 'rb') as pl:
                         plist = load(pl)
                         ver = plist['CFBundleVersion']
                         pl.close()
-                    time = self.get_time(kext_full)
+                    time = self.get_time(plist_name)
                     local['BrcmPatchRAM'] = {'time': time, 'version': ver, 'kexts': [kext]}
                 continue
 
@@ -200,23 +200,23 @@ class OCUpdater:
                 try: 
                     local['VirtualSMC']['kexts'].append(kext)
                 except:
-                    plist = os.path.join(kext_full, 'Contents/Info.plist')
-                    with open(plist, 'rb') as pl:
+                    plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+                    with open(plist_name, 'rb') as pl:
                         plist = load(pl)
                         ver = plist['CFBundleVersion']
                         pl.close()
-                    time = self.get_time(kext_full)
+                    time = self.get_time(plist_name)
                     local['VirtualSMC'] = {'time': time, 'version': ver, 'kexts': [kext]}
                 continue
             
             # VoodooPS2
             if kext0 == "VoodooPS2Controller":
-                plist = os.path.join(kext_full, 'Contents/Info.plist')
-                with open(plist, 'rb') as pl:
+                plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+                with open(plist_name, 'rb') as pl:
                     plist = load(pl)
                     ver = plist['CFBundleVersion']
                     pl.close()
-                time = self.get_time(kext_full)
+                time = self.get_time(plist_name)
                 local['VoodooPS2'] = {'time': time, 'version': ver, 'kexts': [kext]}
                 continue
             
@@ -225,12 +225,12 @@ class OCUpdater:
                 continue
             
             # in kexts_list: save time and kext name
-            plist = os.path.join(kext_full, 'Contents/Info.plist')
-            with open(plist, 'rb') as pl:
+            plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+            with open(plist_name, 'rb') as pl:
                 plist = load(pl)
                 ver = plist['CFBundleVersion']
                 pl.close()
-            time = self.get_time(kext_full)
+            time = self.get_time(plist_name)
             local[kext0] = {'time': time, 'version': ver, 'kexts': [kext]}
         return local
 
@@ -540,28 +540,29 @@ class OCUpdater:
 
     # backup EFI
     def backup_EFI(self):
-        err = 0
         dist_root = sys.path[0]
         dist_root = os.path.abspath(os.path.join(dist_root, 'backup_EFI/'))
         if not os.path.exists(dist_root):
             os.makedirs(dist_root)
         now = time.time()
         now = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(now))
-        dist = os.path.abspath(os.path.join(dist_root, now + '/EFI'))
-        source_path = os.path.abspath(os.path.join(self.root, 'EFI'))
-        try:
-            shutil.copytree(source_path, dist)
-        except shutil.Error as errs:
-            err = 0
-            errors = errs.args[0]
-            for error in errors:
-                src, dst, msg = error
-                msg = msg.split(']')
-                msg = msg[1].strip()
-                print(self.Colors("[Error] " + msg + ": " + src, fcolor='red'))
-        if err:
-            print(self.Colors("[Warning] EFI is successfully backup to: " + dist + ", but some files not copied because of errors.", fcolor='yellow'))
-            return 
+        dist = os.path.abspath(os.path.join(dist_root, now + '.zip'))
+        efi_name = 'EFI'
+        source_path = os.path.abspath(os.path.join(self.root, efi_name))
+        if not os.path.exists(source_path):
+            efi_name = efi_name.lower()
+            source_path = os.path.abspath(os.path.join(self.root, efi_name))
+        zip = zipfile.ZipFile(dist,"w",zipfile.ZIP_DEFLATED)
+        for path,dirnames,filenames in os.walk(os.path.join(self.root, efi_name)):
+            fpath = path.replace(self.root,'')
+            if fpath[0:4] != ("/" + efi_name):
+                continue
+            for filename in filenames:
+                source_file = os.path.join(fpath,filename)
+                if source_file[0:4] != ("/" + efi_name):
+                    continue
+                zip.write(os.path.join(path, filename), source_file)
+        zip.close()
         print(self.Colors("[Info] EFI is successfully backup to: " + dist, fcolor='green'))
     
 
@@ -623,22 +624,21 @@ class OCUpdater:
     def update_oc_interface(self, kext, progress):
         os.system('clear')
         self.title()
-        print("")
         print(self.Colors("- Update OpenCorePkg Done", fcolor='green'))
         print("> Update Kexts Package")
         print("")
         progress1 = progress[0] + 1
-        ratio = float(progress1*4 + progress[1] - 4)/self.update[1]/4
+        progress2 = progress[1]
+        ratio = float(progress1*4 + progress2 - 4)/self.install/4
         sym_nums = 60
         sym_progress = int(sym_nums*ratio)
         space = sym_nums - sym_progress
-        print("[" + str(progress1-1) +"/" + str(self.update[1]) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
+        print("[" + str(progress1-1) +"/" + str(self.install) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
         print("")
         print("Updating Kext Package: " + self.Colors(kext, fcolor='yellow') + "\n" + "These kext(s) will be update: ")
         for k in self.update_info[kext]['kexts']:
             print(self.Colors("\t" + k, fcolor='yellow'))
         print("")
-        progress2 = progress[1]
         if progress2 >= 0:
             print(self.Colors("[Info] Downloading Kext Package: " + kext, fcolor='green'))
         if progress2 >= 1:
@@ -763,6 +763,8 @@ class OCUpdater:
         shutil.rmtree(tmp_path)
         print(self.Colors("[Info] Clean Done", fcolor='green'))
 
+        input("Press [Enter] to continue...")
+
         # update kexts
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
@@ -815,8 +817,6 @@ class OCUpdater:
                     update = os.path.abspath(os.path.join(tmp_path0, k))
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
-                    print(source, update)
-                    input()
                 progress[1] = progress[1] + 1
             except:
                 err.append(kext)
@@ -847,11 +847,9 @@ class OCUpdater:
                             "All Kext Packages Update Successfully:", fcolor='magenta'))
                     first_time = 1
                 if len(i) < 11:
-                    print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
-                          '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+                    print(self.Colors("   " + i, fcolor='blue'))
                 else:
-                    print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
-                          '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+                    print(self.Colors("   " + i, fcolor='blue'))
         print("")
         if len(err) > 0:
             first_time = 0
@@ -865,11 +863,9 @@ class OCUpdater:
                             "These Kext Package(s) Update Unsuccessfully:", fcolor='red'))
                         first_time = 1
                     if len(i) < 11:
-                        print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
-                              '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+                        print(self.Colors("   " + i, fcolor='yellow'))
                     else:
-                        print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
-                              '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+                        print(self.Colors("   " + i), fcolor='yellow')
             print("")
 
 
@@ -877,11 +873,11 @@ class OCUpdater:
     def update_kexts_interface(self, kext, progress):
         os.system('clear')
         self.title()
-        print("")
         print("> Update Kexts Package")
         print("")
         progress1 = progress[0] + 1
-        ratio = float(progress1*4 + progress[1] - 4)/self.update[1]/4
+        progress2 = progress[1]
+        ratio = float(progress1*4 + progress2 - 4)/self.update[1]/4
         sym_nums = 60
         sym_progress = int(sym_nums*ratio)
         space = sym_nums - sym_progress
@@ -891,7 +887,6 @@ class OCUpdater:
         for k in self.update_info[kext]['kexts']:
             print(self.Colors("\t" + k, fcolor='yellow'))
         print("")
-        progress2 = progress[1]
         if progress2 >= 0:
             print(self.Colors("[Info] Downloading Kext Package: " + kext, fcolor='green'))
         if progress2 >= 1:
@@ -958,10 +953,14 @@ class OCUpdater:
                 for k in self.update_info[kext]['kexts']:
                     source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts/'))
                     update = os.path.abspath(os.path.join(tmp_path0, k))
+                    info_plist = os.path.abspath(os.path.join(update, 'Contents/Info.plist'))
+                    with open(info_plist, 'rb') as pl:
+                        origin = load(pl)
+                        rewrite = copy.deepcopy(origin)
+                    with open(info_plist, 'wb') as new_plist:
+                        dump(rewrite, new_plist, fmt=FMT_XML,sort_keys=True, skipkeys=False)
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
-                    print(source, update)
-                    input()
                 progress[1] = progress[1] + 1
             except:
                 err.append(kext)
@@ -1185,3 +1184,4 @@ if __name__ == "__main__":
 
     # run script
     ocup.main()
+
