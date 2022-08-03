@@ -5,7 +5,6 @@ import os
 import time
 import copy
 import shutil
-import wget
 import zipfile
 from datetime import datetime
 from plistlib import *
@@ -37,6 +36,7 @@ class OCUpdater:
         self.local = {}
         self.remote = {}
         self.update_info = {}
+        self.install = 0
         self.update = [0, 0]
 
 
@@ -149,7 +149,6 @@ class OCUpdater:
     # get local data
     def get_local_data(self):
         local = {}
-        first_time2 = 0
 
         # OpenCore
         oc = os.path.abspath(os.path.join(self.root, 'EFI/OC/OpenCore.efi'))
@@ -180,7 +179,7 @@ class OCUpdater:
                     time = self.get_time(kext_full)
                     local['IntelBluetoothFirmware'] = {'time': time, 'version': ver, 'kexts': [kext]}
                 continue
-                
+
 
             # BrcmPatchRAM
             if kext0[0:4] == 'Brcm' or kext0 == 'BlueToolFixup':
@@ -437,6 +436,7 @@ class OCUpdater:
         # get local data
         try:
             self.local = self.get_local_data()
+            self.install = len(self.local.keys())
         except:
             print(self.Colors('[Error] Not OpenCore Detected, please check EFI patition', fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
@@ -619,6 +619,41 @@ class OCUpdater:
             dump(up_plist, new_plist, fmt=FMT_XML, sort_keys=True, skipkeys=False)
 
 
+    # update OpenCore interface
+    def update_oc_interface(self, kext, progress):
+        os.system('clear')
+        self.title()
+        print("")
+        print(self.Colors("- Update OpenCorePkg Done", fcolor='green'))
+        print("> Update Kexts Package")
+        print("")
+        progress1 = progress[0] + 1
+        ratio = float(progress1*4 + progress[1] - 4)/self.update[1]/4
+        sym_nums = 60
+        sym_progress = int(sym_nums*ratio)
+        space = sym_nums - sym_progress
+        print("[" + str(progress1-1) +"/" + str(self.update[1]) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
+        print("")
+        print("Updating Kext Package: " + self.Colors(kext, fcolor='yellow') + "\n" + "These kext(s) will be update: ")
+        for k in self.update_info[kext]['kexts']:
+            print(self.Colors("\t" + k, fcolor='yellow'))
+        print("")
+        progress2 = progress[1]
+        if progress2 >= 0:
+            print(self.Colors("[Info] Downloading Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 1:
+            print(self.Colors("[Info] Download Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Extracting Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 2:
+            print(self.Colors("[Info] Extract Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Updating Kext Package: " + kext, fcolor='green'))
+        if progress2 >= 3:
+            print(self.Colors("[Info] Update Kext Package: " + kext + " Done", fcolor='green'))
+            print(self.Colors("[Info] Cleaning Cache: " + kext, fcolor='green'))
+        if progress2 >= 4:
+            print(self.Colors("[Info] Clean Cache: " + kext + " Done", fcolor='green'))
+
+
     # update OpenCore
     def update_OpenCore(self):
         oc = self.update_info[self.bootloader]
@@ -632,7 +667,10 @@ class OCUpdater:
 
         # download
         print(self.Colors("[Info] Downloading OpenCorePkg...", fcolor='green'))
-        wget.download(oc[update_type]['link'], tmp)
+        headers = {"Auth": "{abcd}", "accept": "*/*", "accept-encoding": "gzip;deflate;br"}
+        response = requests.request("GET", oc[update_type]['link'], headers = headers)
+        with open(tmp, "wb") as f:
+            f.write(response.content)
         print("")
         print(self.Colors("[Info] Download Done", fcolor='green'))
 
@@ -725,9 +763,118 @@ class OCUpdater:
         shutil.rmtree(tmp_path)
         print(self.Colors("[Info] Clean Done", fcolor='green'))
 
+        # update kexts
+        tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
+        if not os.path.exists(tmp_path):
+            os.mkdir(tmp_path)
+        tmp_path = os.path.abspath(os.path.join(tmp_path, 'Kexts/'))
+        if not os.path.exists(tmp_path):
+            os.mkdir(tmp_path)
+        progress = [0, 0]
+        err = []
+        for kext in self.local.keys():
+            if kext == self.bootloader:
+                continue
+            progress[0] = progress[0] + 1
+            progress[1] = 0
+            self.update_oc_interface(kext, progress)
 
-    # update interface
-    def update_interface(self, kext, progress):
+            try:
+                tmp = os.path.abspath(os.path.join(tmp_path, kext + '.zip'))
+                update_type = self.type
+                update_type = update_type.lower()
+                headers = {"Auth": "{abcd}", "accept": "*/*",
+                           "accept-encoding": "gzip;deflate;br"}
+                response = requests.request(
+                    "GET", self.update_info[kext][update_type]['link'], headers=headers)
+                with open(tmp, "wb") as f:
+                    f.write(response.content)
+                progress[1] = progress[1] + 1
+            except:
+                err.append(kext)
+                continue
+            self.update_oc_interface(kext, progress)
+
+            try:
+                tmp_path0 = os.path.abspath(
+                    os.path.join(tmp_path,  kext + '/'))
+                ys = zipfile.ZipFile(tmp)
+                ys.extractall(tmp_path0)
+                ys.close()
+                os.remove(tmp)
+                progress[1] = progress[1] + 1
+            except:
+                err.append(kext)
+                continue
+            self.update_oc_interface(kext, progress)
+
+            try:
+                for k in self.update_info[kext]['kexts']:
+                    source = os.path.abspath(
+                        os.path.join(self.root, 'EFI/OC/Kexts/'))
+                    update = os.path.abspath(os.path.join(tmp_path0, k))
+                    source = source.replace(' ', '\ ')
+                    os.system('cp -rf ' + update + ' ' + source)
+                    print(source, update)
+                    input()
+                progress[1] = progress[1] + 1
+            except:
+                err.append(kext)
+                continue
+
+            try:
+                shutil.rmtree(tmp_path0)
+                progress[1] = progress[1] + 1
+            except:
+                err.append(kext)
+                continue
+            self.update_oc_interface(kext, progress)
+        
+        os.system('clear')
+        self.title()
+        first_time = 0
+        for i in self.local.keys():
+            cg = self.update_info[i]
+            if i == self.bootloader:
+                continue
+            if i not in err:
+                if first_time == 0:
+                    if len(err) > 0:
+                        print(self.Colors(
+                            "These Kext Package(s) Update Successfully:", fcolor='magenta'))
+                    else:
+                        print(self.Colors(
+                            "All Kext Packages Update Successfully:", fcolor='magenta'))
+                    first_time = 1
+                if len(i) < 11:
+                    print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
+                          '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+                else:
+                    print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
+                          '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+        print("")
+        if len(err) > 0:
+            first_time = 0
+            for i in self.local.keys():
+                if i == self.bootloader:
+                    continue
+                cg = self.update_info[i]
+                if i in err:
+                    if first_time == 0:
+                        print(self.Colors(
+                            "These Kext Package(s) Update Unsuccessfully:", fcolor='red'))
+                        first_time = 1
+                    if len(i) < 11:
+                        print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
+                              '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+                    else:
+                        print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
+                              '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+            print("")
+
+
+    # update kexts interface
+    def update_kexts_interface(self, kext, progress):
         os.system('clear')
         self.title()
         print("")
@@ -779,18 +926,21 @@ class OCUpdater:
                 continue
             progress[0] = progress[0] + 1
             progress[1] = 0
-            self.update_interface(kext, progress)
+            self.update_kexts_interface(kext, progress)
 
             try:
                 tmp = os.path.abspath(os.path.join(tmp_path, kext + '.zip'))
                 update_type = self.type
                 update_type = update_type.lower()
-                wget.download(self.update_info[kext][update_type]['link'], tmp)
+                headers = {"Auth": "{abcd}", "accept": "*/*", "accept-encoding": "gzip;deflate;br"}
+                response = requests.request("GET", self.update_info[kext][update_type]['link'], headers = headers)
+                with open(tmp, "wb") as f:
+                    f.write(response.content)
                 progress[1] = progress[1] + 1
             except:
-                err.append(progress[0])
+                err.append(kext)
                 continue
-            self.update_interface(kext, progress)
+            self.update_kexts_interface(kext, progress)
 
             try:
                 tmp_path0 = os.path.abspath(os.path.join(tmp_path,  kext + '/'))
@@ -800,9 +950,9 @@ class OCUpdater:
                 os.remove(tmp)
                 progress[1] = progress[1] + 1
             except:
-                err.append(progress[0])
+                err.append(kext)
                 continue
-            self.update_interface(kext, progress)
+            self.update_kexts_interface(kext, progress)
 
             try:
                 for k in self.update_info[kext]['kexts']:
@@ -810,27 +960,29 @@ class OCUpdater:
                     update = os.path.abspath(os.path.join(tmp_path0, k))
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
+                    print(source, update)
+                    input()
                 progress[1] = progress[1] + 1
             except:
-                err.append(progress[0])
+                err.append(kext)
                 continue
             
             try:
                 shutil.rmtree(tmp_path0)
                 progress[1] = progress[1] + 1
             except:
-                err.append(progress[0])
+                err.append(kext)
                 continue
-            self.update_interface(kext, progress)
+            self.update_kexts_interface(kext, progress)
         
         os.system('clear')
         self.title()
         first_time = 0
-        item = 0
         for i in self.local.keys():
-            item = item + 1
             cg = self.update_info[i]
-            if cg['status'] == "Update Available" and (item not in err):
+            if i == self.bootloader:
+                continue
+            if cg['status'] == "Update Available" and (i not in err):
                 if first_time == 0:
                     if len(err) > 0:
                         print(self.Colors("These Kext Package(s) Update Successfully:", fcolor='magenta'))
@@ -841,14 +993,14 @@ class OCUpdater:
                     print(self.Colors("   " + i + ":\t\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
                 else: 
                     print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
+        print("")
         if len(err) > 0:
-            print("")
             first_time = 0
-            item = 0
             for i in self.local.keys():
-                item = item + 1
+                if i == self.bootloader:
+                    continue
                 cg = self.update_info[i]
-                if cg['status'] == "Update Available" and (item in err):
+                if cg['status'] == "Update Available" and (i in err):
                     if first_time == 0:
                         print(self.Colors("These Kext Package(s) Update Unsuccessfully:", fcolor='red'))
                         first_time = 1
@@ -857,6 +1009,8 @@ class OCUpdater:
                     else: 
                         print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
                               '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
+            print("")
+            print(self.Colors("[Info] OpenCorePkg and All Kexts update Done.", fcolor='green'))
 
 
 
