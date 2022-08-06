@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.26'
+        self.ver = 'V1.27'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -167,7 +167,7 @@ class OCUpdater:
             kext_full = os.path.join(domain, kext)
 
             # IntelBluetoothFirmware
-            if kext0[0:14] == 'IntelBluetooth' or kext0 == 'IntelBTPatcher':
+            if kext0[0:14].lower() == 'intelbluetooth' or kext0.lower() == 'intelbtpatcher':
                 try:
                     local['IntelBluetoothFirmware']['kexts'].append(kext)
                 except:
@@ -182,7 +182,7 @@ class OCUpdater:
 
 
             # BrcmPatchRAM
-            if kext0[0:4] == 'Brcm' or kext0 == 'BlueToolFixup':
+            if kext0[0:4].lower() == 'brcm' or kext0.lower() == 'bluetoolfixup':
                 try:
                     local['BrcmPatchRAM']['kexts'].append(kext)
                 except:
@@ -196,7 +196,7 @@ class OCUpdater:
                 continue
 
             # VirtualSMC
-            if kext0[0:3] == 'SMC' or kext0[-3:-1] == 'SMC':
+            if kext0[0:3].upper() == 'SMC' or kext0.upper() == 'VIRTUALSMC':
                 try: 
                     local['VirtualSMC']['kexts'].append(kext)
                 except:
@@ -587,37 +587,61 @@ class OCUpdater:
                 continue
         for del_key in del_keys:
             up_plist.pop(del_key)
-        
+
         for key in up_plist.keys():
+            if key.lower() == "deviceproperties":
+                up_plist[key] = src_plist[key]
+                continue
             for key2 in up_plist[key].keys():
-                if key2 == "Add" or key2 == "Delete" or key2 == "Patch":
-                    up_plist[key][key2] = src_plist[key][key2]
-                    continue
                 try:
-                    if key == "PlatformInfo":
+                    if key.lower() == "platforminfo":
                         if key2 in src_plist[key].keys():
                             up_plist[key][key2] = src_plist[key][key2]
                             continue
                         del_platform_info.append(key2)
                         continue
-                    for key3 in up_plist[key][key2].keys():
+                    if isinstance(up_plist[key][key2], list):
                         try:
-                            up_plist[key][key2][key3] = src_plist[key][key2][key3]
+                            try:
+                                example = up_plist[key][key2][1]
+                            except:
+                                example = up_plist[key][key2][0]
                         except:
+                            up_plist[key][key2] = src_plist[key][key2]
                             continue
+                        up_plist[key][key2] = src_plist[key][key2]
+                        for ele in up_plist[key][key2]:
+                            keys = ele.keys()
+                            for key3 in example.keys():
+                                if key3 in keys or key3.lower() == 'comment':
+                                    continue
+                                ele[key3] = example[key3]
+                        continue
+                    if isinstance(up_plist[key][key2], dict):
+                        example = up_plist[key][key2]
+                        up_plist[key][key2] = src_plist[key][key2]
+                        ele = up_plist[key][key2]
+                        keys = ele.keys()
+                        for key3 in example.keys():
+                            if key3 in keys or key3.lower() == 'comment':
+                                continue
+                            ele[key3] = example[key3]
+                        continue
+                    up_plist[key][key2] = src_plist[key][key2]
                 except:
                     try:
                         up_plist[key][key2] = src_plist[key][key2]
                     except:
                         continue
-                
+
         # delete no need platform information
         for platform_info in del_platform_info:
             up_plist["PlatformInfo"].pop(platform_info)
-        
+
         # save new config
         with open(save_config, 'wb') as new_plist:
-            dump(up_plist, new_plist, fmt=FMT_XML, sort_keys=True, skipkeys=False)
+            dump(up_plist, new_plist, fmt=FMT_XML,
+                 sort_keys=True, skipkeys=False)
 
 
     # update OpenCore interface
