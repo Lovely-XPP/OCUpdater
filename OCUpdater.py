@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.27'
+        self.ver = 'V1.28'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -719,14 +719,17 @@ class OCUpdater:
         drivers = []
         oc_drivers_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Drivers/'))
         oc_drivers_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Drivers/'))
-        for driver in  os.listdir(oc_drivers_update):
+        for driver in os.listdir(oc_drivers_update):
             drivers.append(driver)
         for driver in os.listdir(oc_drivers_source):
             if driver[0] == '.':
                 continue
             if driver not in drivers:
-                 print(self.Colors("[Warning] Driver " + driver + " is not in Official Drivers folders, update skipped", fcolor='yellow'))
-                 continue
+                print(self.Colors("[Warning] Driver " + driver + " is not in Official Drivers folders, update skipped", fcolor='yellow'))
+                continue
+            source_driver = os.path.abspath(os.path.join(oc_drivers_source, driver))
+            update_driver = os.path.abspath(os.path.join(oc_drivers_update, driver))
+            shutil.copy(update_driver, source_driver)
         print(self.Colors("[Info] Update Drivers Done", fcolor='green'))
 
         # Tools update
@@ -734,14 +737,17 @@ class OCUpdater:
         tools = []
         oc_tools_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Tools/'))
         oc_tools_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Tools/'))
-        for driver in  os.listdir(oc_tools_update):
-            tools.append(driver)
-        for driver in os.listdir(oc_tools_source):
-            if driver[0] == '.':
+        for tool in os.listdir(oc_tools_update):
+            tools.append(tool)
+        for tool in os.listdir(oc_tools_source):
+            if tool[0] == '.':
                 continue
-            if driver not in tools:
-                 print(self.Colors("[Warning] Tool " + driver + " is not in Official Tools folders, update skipped", fcolor='yellow'))
-                 continue
+            if tool not in tools:
+                print(self.Colors("[Warning] Tool " + tool + " is not in Official Tools folders, update skipped", fcolor='yellow'))
+                continue
+            source_tool = os.path.abspath(os.path.join(oc_tools_source, tool))
+            update_tool = os.path.abspath(os.path.join(oc_tools_update, tool))
+            shutil.copy(update_tool, source_tool)
         print(self.Colors("[Info] Update Tools Done", fcolor='green'))
 
         # check plist
