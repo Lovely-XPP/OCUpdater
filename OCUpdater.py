@@ -752,6 +752,7 @@ class OCUpdater:
 
         # check plist
         ocvalidate_path = os.path.abspath(os.path.join(tmp_path, 'Utilities/ocvalidate/ocvalidate'))
+        os.system('chmod +x ' + ocvalidate_path)
         plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/Config.plist'))
         if not os.path.exists(plist_path):
             plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/config.plist'))
