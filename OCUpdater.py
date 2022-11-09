@@ -368,8 +368,8 @@ class OCUpdater:
     # mount EFI and get EFI partition name
     def mount_EFI(self):
         out = os.popen('diskutil list').read()
-        out = out.split('EFI')[1]
-        out = out.split('\n')[0]
+        out = out.split('EFI', 1)[1]
+        out = out.split('\n', 1)[0]
         out = out.split('disk')[1]
         self.EFI_disk = 'disk' + out.strip()
         self.title()
