@@ -6,7 +6,7 @@ Utility for hackintosh user to update opencore and main kexts. The script will a
 ## To Do
 
 - [x] Mount EFI
-- [ ] Arrow to Choose EFI when Encountering More Than 1 EFI
+- [x] Allow to Choose EFI when Encountering More Than 1 EFI
 - [x] Hide Password Input
 - [x] Gengerate update information
 - [x] Network connection check
