@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.28'
+        self.ver = 'V1.29'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -151,7 +151,7 @@ class OCUpdater:
         local = {}
 
         # OpenCore
-        oc = os.path.abspath(os.path.join(self.root, 'EFI/OC/OpenCore.efi'))
+        oc = os.path.abspath(os.path.join(self.root, 'OpenCore.efi'))
         oc_ver = os.popen('nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version').read()
         oc_ver = oc_ver.split('REL-')[-1]
         oc_ver = oc_ver[0:3]
@@ -160,10 +160,10 @@ class OCUpdater:
         local[self.bootloader] = {'time': time, 'version': ver}
 
         # kexts
-        for kext in os.listdir(os.path.join(self.root, 'EFI/OC/Kexts')):
+        for kext in os.listdir(os.path.join(self.root, 'Kexts')):
             kext0 = kext.split('.')
             kext0 = kext0[0]
-            domain = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts'))
+            domain = os.path.abspath(os.path.join(self.root, 'Kexts'))
             kext_full = os.path.join(domain, kext)
 
             # IntelBluetoothFirmware
@@ -367,11 +367,20 @@ class OCUpdater:
 
     # mount EFI and get EFI partition name
     def mount_EFI(self):
+        EFI_disks = []
         out = os.popen('diskutil list').read()
-        out = out.split('EFI', 1)[1]
-        out = out.split('\n', 1)[0]
-        out = out.split('disk')[1]
-        self.EFI_disk = 'disk' + out.strip()
+        out = out.split('EFI')
+        out.pop(0)
+        for strings in out:
+            string = strings.strip()
+            if len(string) < 3:
+                continue
+            string = strings.split('\n', 1)
+            string = string[0]
+            string = string.split('disk')
+            string = string[1]
+            string = 'disk' + string.strip()
+            EFI_disks.append(string)
         self.title()
         print("Please Input your Password to mount EFI: ")
         self.password = self.getpass()
@@ -385,14 +394,80 @@ class OCUpdater:
             print("")
             exit()
         os.system("clear")
-        out = os.popen('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk).read()
-        out = out.strip()
-        out = out.split('on')
-        out = out[0]
-        out = out.split('Volume')
-        out = out[1].strip()
-        EFI_root = os.path.join('/Volumes/', out)
-        self.root = EFI_root
+        OC_disks = []
+        OC_roots = []
+        # check OC folder in all EFI patitions
+        for EFI_disk in EFI_disks:
+            out = os.popen('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + EFI_disk).read()
+            out = out.strip()
+            out = out.split('on')
+            out = out[0]
+            out = out.split('Volume')
+            out = out[1].strip()
+            EFI_root = os.path.join('/Volumes/', out)
+            # checkout OC Path
+            # get efi name
+            efi_name = 'EFI'
+            oc_name = 'OC'
+            source_path = os.path.abspath(os.path.join(EFI_root, efi_name))
+            if not os.path.exists(source_path):
+                efi_name = efi_name.lower()
+                source_path = os.path.abspath(os.path.join(EFI_root, efi_name))
+            source_path = os.path.abspath(os.path.join(source_path, oc_name))
+            if not os.path.exists(source_path):
+                oc_name = oc_name.lower()
+                source_path = os.path.abspath(os.path.join(EFI_root, oc_name))
+            # if not exist, unmount EFI and try next one
+            if not os.path.exists(source_path):
+                res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + EFI_disk).read()
+                continue
+            OC_disks.append(EFI_disk)
+            OC_roots.append(source_path)
+        # if no detect EFI 
+        if len(OC_disks) == 0:
+            self.title()
+            print(self.Colors('[Error] Not OpenCore Detected, please check EFI patition', fcolor='red'))
+            print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+            print("")
+            exit()
+        # if detect EFI patition > 1, let user choose the right one
+        if len(OC_disks) == 1:
+            self.root = OC_roots[0]
+            self.EFI_disk = OC_disks[0]
+        else:
+            choose = -1
+            while(True):
+                count = 0
+                self.title()
+                print(self.Colors("[Warn] Detect More than 1 EFI Patition with OC Folder, Please choose one!"))
+                for OC_disk in OC_disks:
+                    res = os.popen('diskutil list /dev/' + OC_disk).read()
+                    out = res.split('\n', 1)
+                    print(str(count) + '. ' + self.Colors(out[0], fcolor='green'))
+                    print(out[1])
+                choose = input("Please input 0 ~ " + str(len(OC_disks)) + " :")
+                try:
+                    choose = int(choose)
+                    if (choose < 0 and choose > len(OC_disks)):
+                        print(self.Colors('[Error] Input Error, Please input 0 ~ ' + str(len(OC_disks)), fcolor='red'))
+                        continue
+                    break
+                except:
+                    continue
+            if choose == 0:
+                os.system("clear")
+                self.title()
+                print(self.Colors("[Info] The script is terminated.", fcolor='green'))
+                print("")
+                print("Have a nice day ~")
+                exit()
+            # get the choose EFI and unmonut others
+            self.EFI_disk = OC_disks[choose-1]
+            self.root = OC_roots[choose-1]
+            OC_disks.pop(choose-1)
+            for OC_disk in OC_disks:
+                res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + OC_disk).read()
+
 
 
     # check network
@@ -438,7 +513,7 @@ class OCUpdater:
             self.local = self.get_local_data()
             self.install = len(self.local.keys())
         except:
-            print(self.Colors('[Error] Not OpenCore Detected, please check EFI patition', fcolor='red'))
+            print(self.Colors('[Error] OpenCore Folder Structure is not complete, please check EFI patition', fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
@@ -547,19 +622,19 @@ class OCUpdater:
         now = time.time()
         now = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(now))
         dist = os.path.abspath(os.path.join(dist_root, now + '.zip'))
-        efi_name = 'EFI'
-        source_path = os.path.abspath(os.path.join(self.root, efi_name))
-        if not os.path.exists(source_path):
-            efi_name = efi_name.lower()
-            source_path = os.path.abspath(os.path.join(self.root, efi_name))
         zip = zipfile.ZipFile(dist,"w",zipfile.ZIP_DEFLATED)
-        for path,dirnames,filenames in os.walk(os.path.join(self.root, efi_name)):
-            fpath = path.replace(self.root,'')
-            if fpath[0:4] != ("/" + efi_name):
+        tmp_path = os.path.abspath(os.path.join(self.root, '..'))
+        efi_path = os.path.abspath(os.path.join(self.root, '../..'))
+        efi_name = tmp_path[len(efi_path):-1] + tmp_path[-1]
+        efi_name = efi_name.replace('/', '')
+        str_count = len(efi_name) + 1
+        for path,dirnames,filenames in os.walk(efi_path):
+            fpath = path.replace(efi_path,'')
+            if fpath[0:str_count] != ("/" + efi_name):
                 continue
             for filename in filenames:
                 source_file = os.path.join(fpath,filename)
-                if source_file[0:4] != ("/" + efi_name):
+                if source_file[0:str_count] != ("/" + efi_name):
                     continue
                 zip.write(os.path.join(path, filename), source_file)
         zip.close()
@@ -709,7 +784,7 @@ class OCUpdater:
 
         # OpenCore.efi update
         print(self.Colors("[Info] Updating OpenCorePkg Core...", fcolor='green'))
-        oc_efi_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/OpenCore.efi'))
+        oc_efi_source = os.path.abspath(os.path.join(self.root, 'OpenCore.efi'))
         oc_efi_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/OpenCore.efi'))
         shutil.copy(oc_efi_update, oc_efi_source)
         print(self.Colors("[Info] Update Core Done", fcolor='green'))
@@ -717,7 +792,7 @@ class OCUpdater:
         # Drivers update
         print(self.Colors("[Info] Updating OpenCorePkg Drivers...", fcolor='green'))
         drivers = []
-        oc_drivers_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Drivers/'))
+        oc_drivers_source = os.path.abspath(os.path.join(self.root, 'Drivers/'))
         oc_drivers_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Drivers/'))
         for driver in os.listdir(oc_drivers_update):
             drivers.append(driver)
@@ -735,7 +810,7 @@ class OCUpdater:
         # Tools update
         print(self.Colors("[Info] Updating OpenCorePkg Tools...", fcolor='green'))
         tools = []
-        oc_tools_source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Tools/'))
+        oc_tools_source = os.path.abspath(os.path.join(self.root, 'Tools/'))
         oc_tools_update = os.path.abspath(os.path.join(tmp_path, 'X64/EFI/OC/Tools/'))
         for tool in os.listdir(oc_tools_update):
             tools.append(tool)
@@ -753,9 +828,9 @@ class OCUpdater:
         # check plist
         ocvalidate_path = os.path.abspath(os.path.join(tmp_path, 'Utilities/ocvalidate/ocvalidate'))
         os.system('chmod +x ' + ocvalidate_path)
-        plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/Config.plist'))
+        plist_path = os.path.abspath(os.path.join(self.root, 'Config.plist'))
         if not os.path.exists(plist_path):
-            plist_path = os.path.abspath(os.path.join(self.root, 'EFI/OC/config.plist'))
+            plist_path = os.path.abspath(os.path.join(self.root, 'config.plist'))
         if not os.path.exists(plist_path):
             print(self.Colors("[Warning] config plist not found, check skipped", fcolor='yellow'))
         else:
@@ -835,6 +910,10 @@ class OCUpdater:
                 ys.extractall(tmp_path0)
                 ys.close()
                 os.remove(tmp)
+                tmp_path1 = os.path.abspath(os.path.join(tmp_path,  kext))
+                tmp_path1 = os.path.abspath(os.path.join(tmp_path1,  'Kexts'))
+                if os.path.exists(tmp_path1):
+                    os.system('mv ' + tmp_path1 + '/* ' + tmp_path0)
                 progress[1] = progress[1] + 1
             except:
                 err.append(kext)
@@ -844,7 +923,7 @@ class OCUpdater:
             try:
                 for k in self.update_info[kext]['kexts']:
                     source = os.path.abspath(
-                        os.path.join(self.root, 'EFI/OC/Kexts/'))
+                        os.path.join(self.root, 'Kexts/'))
                     update = os.path.abspath(os.path.join(tmp_path0, k))
                     source = source.replace(' ', '\ ')
                     os.system('cp -rf ' + update + ' ' + source)
@@ -906,13 +985,13 @@ class OCUpdater:
         self.title()
         print("> Update Kexts Package")
         print("")
-        progress1 = progress[0] + 1
+        progress1 = progress[0]
         progress2 = progress[1]
         ratio = float(progress1*4 + progress2 - 4)/self.update[1]/4
         sym_nums = 60
         sym_progress = int(sym_nums*ratio)
         space = sym_nums - sym_progress
-        print("[" + str(progress1-1) +"/" + str(self.update[1]) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
+        print("[" + str(progress1) +"/" + str(self.update[1]) + "]  " + str(round(ratio*100,2)) + " %  [" + "="*sym_progress + " "*space + "]")
         print("")
         print("Updating Kext Package: " + self.Colors(kext, fcolor='yellow') + "\n" + "These kext(s) will be update: ")
         for k in self.update_info[kext]['kexts']:
@@ -974,6 +1053,10 @@ class OCUpdater:
                 ys.extractall(tmp_path0)
                 ys.close()
                 os.remove(tmp)
+                tmp_path1 = os.path.abspath(os.path.join(tmp_path,  kext))
+                tmp_path1 = os.path.abspath(os.path.join(tmp_path1,  'Kexts'))
+                if os.path.exists(tmp_path1):
+                    os.system('mv ' + tmp_path1 + '/* ' + tmp_path0)
                 progress[1] = progress[1] + 1
             except:
                 err.append(kext)
@@ -982,7 +1065,7 @@ class OCUpdater:
 
             try:
                 for k in self.update_info[kext]['kexts']:
-                    source = os.path.abspath(os.path.join(self.root, 'EFI/OC/Kexts/'))
+                    source = os.path.abspath(os.path.join(self.root, 'Kexts/'))
                     update = os.path.abspath(os.path.join(tmp_path0, k))
                     info_plist = os.path.abspath(os.path.join(update, 'Contents/Info.plist'))
                     with open(info_plist, 'rb') as pl:
@@ -1215,4 +1298,4 @@ if __name__ == "__main__":
 
     # run script
     ocup.main()
-
+    
