@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.29'
+        self.ver = 'V1.30'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -441,10 +441,12 @@ class OCUpdater:
                 self.title()
                 print(self.Colors("[Warn] Detect More than 1 EFI Patition with OC Folder, Please choose one!"))
                 for OC_disk in OC_disks:
+                    count += 1
                     res = os.popen('diskutil list /dev/' + OC_disk).read()
                     out = res.split('\n', 1)
                     print(str(count) + '. ' + self.Colors(out[0], fcolor='green'))
                     print(out[1])
+                print(self.Colors("0. exit\n", fcolor="green"))
                 choose = input("Please input 0 ~ " + str(len(OC_disks)) + " :")
                 try:
                     choose = int(choose)
