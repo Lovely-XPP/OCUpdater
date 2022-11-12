@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.31'
+        self.ver = 'V1.32'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -150,7 +150,7 @@ class OCUpdater:
     def get_local_data(self):
         local = {}
 
-        # OpenCore
+        # OpenCore info
         oc = os.path.abspath(os.path.join(self.root, 'OpenCore.efi'))
         oc_ver = os.popen('nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version').read()
         oc_ver = oc_ver.split('REL-')[-1]
@@ -159,7 +159,7 @@ class OCUpdater:
         time = self.get_time(oc)
         local[self.bootloader] = {'time': time, 'version': ver}
 
-        # kexts
+        # kexts info
         for kext in os.listdir(os.path.join(self.root, 'Kexts')):
             kext0 = kext.split('.')
             kext0 = kext0[0]
@@ -430,10 +430,12 @@ class OCUpdater:
                 source_path = os.path.abspath(os.path.join(EFI_root, oc_name))
             # if not exist, unmount EFI and try next one
             if not os.path.exists(source_path):
-                res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + EFI_disk).read()
+                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
+                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
                 continue
             OC_disks.append(EFI_disk)
             OC_roots.append(source_path)
+            os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
         # if no detect EFI 
         if len(OC_disks) == 0:
             self.title()
@@ -477,9 +479,7 @@ class OCUpdater:
             # get the choose EFI and unmonut others
             self.EFI_disk = OC_disks[choose-1]
             self.root = OC_roots[choose-1]
-            OC_disks.pop(choose-1)
-            for OC_disk in OC_disks:
-                res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + OC_disk).read()
+        os.system('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk)
 
 
 
@@ -852,7 +852,7 @@ class OCUpdater:
         if not os.path.exists(plist_path):
             print(self.Colors("[Warning] config plist not found, check skipped", fcolor='yellow'))
         else:
-            os.popen('chmod +x ' + ocvalidate_path)
+            os.system('chmod +x ' + ocvalidate_path)
             ocvalidate_path_sys = ocvalidate_path.replace(' ', '\ ')
             plist_path_sys = plist_path.replace(' ', '\ ')
             v = os.popen(ocvalidate_path_sys + ' ' + plist_path_sys).read()
@@ -890,21 +890,35 @@ class OCUpdater:
         input("Press [Enter] to continue...")
 
         # update kexts
+        # mkdir cache foler for downloading kexts
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
             os.mkdir(tmp_path)
         tmp_path = os.path.abspath(os.path.join(tmp_path, 'Kexts/'))
         if not os.path.exists(tmp_path):
             os.mkdir(tmp_path)
+        # save info for progress and error kexts
         progress = [0, 0]
+        '''
+        progress[0]:
+            the No. of updating kext
+        progress[1]:
+            0: download
+            1: extract
+            2: copy
+            3: clean
+        '''
         err = []
+        # check every local kexts
         for kext in self.local.keys():
+            # update_info including OpenCorePKG, we need to skip it
             if kext == self.bootloader:
                 continue
             progress[0] = progress[0] + 1
             progress[1] = 0
             self.update_oc_interface(kext, progress)
 
+            # download
             try:
                 tmp = os.path.abspath(os.path.join(tmp_path, kext + '.zip'))
                 update_type = self.type
@@ -921,6 +935,7 @@ class OCUpdater:
                 continue
             self.update_oc_interface(kext, progress)
 
+            # extract
             try:
                 tmp_path0 = os.path.abspath(
                     os.path.join(tmp_path,  kext + '/'))
@@ -938,6 +953,7 @@ class OCUpdater:
                 continue
             self.update_oc_interface(kext, progress)
 
+            # copy
             try:
                 for k in self.update_info[kext]['kexts']:
                     source = os.path.abspath(
@@ -949,7 +965,8 @@ class OCUpdater:
             except:
                 err.append(kext)
                 continue
-
+            
+            # clean
             try:
                 shutil.rmtree(tmp_path0)
                 progress[1] = progress[1] + 1
@@ -961,6 +978,7 @@ class OCUpdater:
         os.system('clear')
         self.title()
         first_time = 0
+        # if not err, print info of success
         for i in self.local.keys():
             cg = self.update_info[i]
             if i == self.bootloader:
@@ -979,6 +997,7 @@ class OCUpdater:
                 else:
                     print(self.Colors("   " + i, fcolor='blue'))
         print("")
+        # if err, print error info
         if len(err) > 0:
             first_time = 0
             for i in self.local.keys():
@@ -1032,6 +1051,7 @@ class OCUpdater:
 
     # update kexts
     def update_kexts(self):
+        # mkdir cache foler for downloading kexts
         tmp_root = sys.path[0]
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
@@ -1039,9 +1059,21 @@ class OCUpdater:
         tmp_path = os.path.abspath(os.path.join(tmp_path, 'Kexts/'))
         if not os.path.exists(tmp_path):
             os.mkdir(tmp_path)
+        # save info for progress and error kexts
         progress = [0, 0]
+        '''
+        progress[0]:
+            the No. of updating kext
+        progress[1]:
+            0: download
+            1: extract
+            2: copy
+            3: clean
+        '''
         err = []
+        # check every local kexts
         for kext in self.local.keys():
+            # update_info including OpenCorePKG, we need to skip it
             cg = self.update_info[kext]
             if kext == self.bootloader:
                 continue
@@ -1050,7 +1082,8 @@ class OCUpdater:
             progress[0] = progress[0] + 1
             progress[1] = 0
             self.update_kexts_interface(kext, progress)
-
+            
+            # download
             try:
                 tmp = os.path.abspath(os.path.join(tmp_path, kext + '.zip'))
                 update_type = self.type
@@ -1065,6 +1098,7 @@ class OCUpdater:
                 continue
             self.update_kexts_interface(kext, progress)
 
+            # extract
             try:
                 tmp_path0 = os.path.abspath(os.path.join(tmp_path,  kext + '/'))
                 ys = zipfile.ZipFile(tmp)
@@ -1081,6 +1115,7 @@ class OCUpdater:
                 continue
             self.update_kexts_interface(kext, progress)
 
+            # copy
             try:
                 for k in self.update_info[kext]['kexts']:
                     source = os.path.abspath(os.path.join(self.root, 'Kexts/'))
@@ -1098,6 +1133,7 @@ class OCUpdater:
                 err.append(kext)
                 continue
             
+            # clean
             try:
                 shutil.rmtree(tmp_path0)
                 progress[1] = progress[1] + 1
@@ -1108,6 +1144,7 @@ class OCUpdater:
         
         os.system('clear')
         self.title()
+        # if not err, print info of success
         first_time = 0
         for i in self.local.keys():
             cg = self.update_info[i]
@@ -1125,6 +1162,8 @@ class OCUpdater:
                 else: 
                     print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] +'-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' + '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='blue'))
         print("")
+
+        # if err occur, print error info
         if len(err) > 0:
             first_time = 0
             for i in self.local.keys():
@@ -1141,7 +1180,6 @@ class OCUpdater:
                         print(self.Colors("   " + i + ":\t" + cg['local_version'] + ' (' + cg['local_time'][0] + '-' + cg['local_time'][1] + '-' + cg['local_time'][2] + ' ' + cg['local_time'][3] + ':' + cg['local_time'][4] + ':' + cg['local_time'][5] + ')' +
                               '  ->  ' + cg['remote_version'] + ' (' + cg['remote_time'][0] + '-' + cg['remote_time'][1] + '-' + cg['remote_time'][2] + ' ' + cg['remote_time'][3] + ':' + cg['remote_time'][4] + ':' + cg['remote_time'][5] + ')', fcolor='yellow'))
             print("")
-            print(self.Colors("[Info] OpenCorePkg and All Kexts update Done.", fcolor='green'))
 
 
 
@@ -1258,11 +1296,11 @@ class OCUpdater:
                 print(self.Colors("[Info] EFI back up Done", fcolor='green'))
                 print(self.Colors("[Info] OpenCore Update Begin", fcolor='green'))
                 self.update_OpenCore()
-                print(self.Colors("[Info] OpenCore Update Done", fcolor='green'))
-                print(self.Colors("[Info] Updating data...", fcolor='green'))
+                print(self.Colors("[Info] OpenCore and All Kexts Update Done", fcolor='green'))
+                print(self.Colors("[Info] Updating local data...", fcolor='green'))
                 self.local = self.get_local_data()
                 self.update_info = self.gen_update_info()
-                print(self.Colors("[Info] Update data Done", fcolor='green'))
+                print(self.Colors("[Info] Update local data Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -1288,10 +1326,11 @@ class OCUpdater:
                 self.backup_EFI()
                 print(self.Colors("[Info] EFI back up Done", fcolor='green'))
                 self.update_kexts()
-                print(self.Colors("[Info] Updating data...", fcolor='green'))
+                print(self.Colors("[Info] All Kexts update Done.", fcolor='green'))
+                print(self.Colors("[Info] Updating local data...", fcolor='green'))
                 self.local = self.get_local_data()
                 self.update_info = self.gen_update_info()
-                print(self.Colors("[Info] Update data Done", fcolor='green'))
+                print(self.Colors("[Info] Update local data Done", fcolor='green'))
                 print("")
                 input("Press [Enter] to back...")
                 continue
@@ -1302,7 +1341,7 @@ class OCUpdater:
         os.system("clear")
         self.title()
         # unmount EFI
-        res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount /dev/' + self.EFI_disk).read().strip()
+        res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + self.EFI_disk).read().strip()
         print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
         print(self.Colors("[Info] The script is terminated.", fcolor='green'))
         print("")
