@@ -2,3 +2,4 @@
 *.DS_Store
 backup_EFI/*
 cache/*
+debug.py

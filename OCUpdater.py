@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.30'
+        self.ver = 'V1.31'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -199,6 +199,15 @@ class OCUpdater:
             if kext0[0:3].upper() == 'SMC' or kext0.upper() == 'VIRTUALSMC':
                 try: 
                     local['VirtualSMC']['kexts'].append(kext)
+                    if kext0.upper() == 'VIRTUALSMC':
+                        plist_name = os.path.join(kext_full, 'Contents/Info.plist')
+                        with open(plist_name, 'rb') as pl:
+                            plist = load(pl)
+                            ver = plist['CFBundleVersion']
+                            pl.close()
+                        time = self.get_time(plist_name)
+                        local['VirtualSMC']['time'] = time
+                        local['VirtualSMC']['version'] = ver
                 except:
                     plist_name = os.path.join(kext_full, 'Contents/Info.plist')
                     with open(plist_name, 'rb') as pl:
@@ -367,6 +376,7 @@ class OCUpdater:
 
     # mount EFI and get EFI partition name
     def mount_EFI(self):
+        # get list of EFI disks
         EFI_disks = []
         out = os.popen('diskutil list').read()
         out = out.split('EFI')
@@ -382,6 +392,7 @@ class OCUpdater:
             string = 'disk' + string.strip()
             EFI_disks.append(string)
         self.title()
+        # get pwd to mount EFI
         print("Please Input your Password to mount EFI: ")
         self.password = self.getpass()
         test = os.popen('echo ' + self.password + ' | sudo -S echo 2').read()
