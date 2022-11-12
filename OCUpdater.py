@@ -73,7 +73,7 @@ class OCUpdater:
             'bold': '\33[1m', # Highlight
             'url': '\33[4m',  # Underline
             'blink': '\33[5m',
-            'seleted': '\33[7m',
+            'selected': '\33[7m',
         }
 
         if fcolor in fg:
@@ -407,7 +407,7 @@ class OCUpdater:
         os.system("clear")
         OC_disks = []
         OC_roots = []
-        # check OC folder in all EFI patitions
+        # check OC folder in all EFI partitions
         for EFI_disk in EFI_disks:
             out = os.popen('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + EFI_disk).read()
             out = out.strip()
@@ -430,20 +430,20 @@ class OCUpdater:
                 source_path = os.path.abspath(os.path.join(EFI_root, oc_name))
             # if not exist, unmount EFI and try next one
             if not os.path.exists(source_path):
-                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
-                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
+                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk + ' >> /dev/null')
+                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk + ' >> /dev/null')
                 continue
             OC_disks.append(EFI_disk)
             OC_roots.append(source_path)
-            os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk).read()
+            os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk + ' >> /dev/null')
         # if no detect EFI 
         if len(OC_disks) == 0:
             self.title()
-            print(self.Colors('[Error] Not OpenCore Detected, please check EFI patition', fcolor='red'))
+            print(self.Colors('[Error] Not OpenCore Detected, please check EFI partition', fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
-        # if detect EFI patition > 1, let user choose the right one
+        # if detect EFI partition > 1, let user choose the right one
         if len(OC_disks) == 1:
             self.root = OC_roots[0]
             self.EFI_disk = OC_disks[0]
@@ -452,7 +452,7 @@ class OCUpdater:
             while(True):
                 count = 0
                 self.title()
-                print(self.Colors("[Warn] Detect More than 1 EFI Patition with OC Folder, Please choose one!"))
+                print(self.Colors("[Warn] Detect More than 1 EFI Partition with OC Folder, Please choose one!"))
                 for OC_disk in OC_disks:
                     count += 1
                     res = os.popen('diskutil list /dev/' + OC_disk).read()
@@ -476,7 +476,7 @@ class OCUpdater:
                 print("")
                 print("Have a nice day ~")
                 exit()
-            # get the choose EFI and unmonut others
+            # get the choose EFI and unmount others
             self.EFI_disk = OC_disks[choose-1]
             self.root = OC_roots[choose-1]
         os.system('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk)
@@ -531,7 +531,7 @@ class OCUpdater:
             self.local = self.get_local_data()
             self.install = len(self.local.keys())
         except:
-            print(self.Colors('[Error] OpenCore Folder Structure is not complete, please check EFI patition', fcolor='red'))
+            print(self.Colors('[Error] OpenCore Folder Structure is not complete, please check EFI partition', fcolor='red'))
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
@@ -890,7 +890,7 @@ class OCUpdater:
         input("Press [Enter] to continue...")
 
         # update kexts
-        # mkdir cache foler for downloading kexts
+        # mkdir cache folder for downloading kexts
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
             os.mkdir(tmp_path)
@@ -1051,7 +1051,7 @@ class OCUpdater:
 
     # update kexts
     def update_kexts(self):
-        # mkdir cache foler for downloading kexts
+        # mkdir cache folder for downloading kexts
         tmp_root = sys.path[0]
         tmp_path = os.path.abspath(os.path.join(tmp_root, 'cache/'))
         if not os.path.exists(tmp_path):
@@ -1350,9 +1350,9 @@ class OCUpdater:
 
 
 if __name__ == "__main__":
-    # 实例化类
-    ocup = OCUpdater()
+    # create obj
+    oc_update = OCUpdater()
 
     # run script
-    ocup.main()
+    oc_update.main()
     
