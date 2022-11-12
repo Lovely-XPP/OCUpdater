@@ -515,6 +515,11 @@ class OCUpdater:
                 exit()
             self.download_database()
             print(self.Colors('[Info] Downloading Done', fcolor='green'))
+        else:
+            if self.network:
+                print(self.Colors('[Info] Data File is Updating...', fcolor='green'))
+                self.download_database()
+                print(self.Colors('[Info] Updating Done', fcolor='green'))
         print(self.Colors('[Info] Data File Found...', fcolor='green'))
         print(self.Colors('[Info] Reading Data File...', fcolor='green'))
 
@@ -584,7 +589,7 @@ class OCUpdater:
     def main_interface(self):
         print("Current Status:")
         if len(self.root) > 0:
-            print("     EFI: " + self.Colors("mounted", fcolor='green'))
+            print("     EFI: " + self.Colors("mounted " + self.EFI_disk, fcolor='green'))
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
         if not self.update[0]:
