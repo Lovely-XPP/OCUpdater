@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.32'
+        self.ver = 'V1.33'
         self.path = ROOT + '/data.json'
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
@@ -431,7 +431,6 @@ class OCUpdater:
             # if not exist, unmount EFI and try next one
             if not os.path.exists(source_path):
                 os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk + ' >> /dev/null')
-                os.system('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + EFI_disk + ' >> /dev/null')
                 continue
             OC_disks.append(EFI_disk)
             OC_roots.append(source_path)
@@ -479,7 +478,7 @@ class OCUpdater:
             # get the choose EFI and unmount others
             self.EFI_disk = OC_disks[choose-1]
             self.root = OC_roots[choose-1]
-        os.system('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk)
+        os.system('echo ' + self.password + ' | sudo -S diskutil mount /dev/' + self.EFI_disk + ' >> /dev/null')
 
 
 

@@ -94,3 +94,5 @@ Tip: When you run the script, the script will prompt you for password to mount E
 - [Dortania](https://github.com/dortania) for provide binary and database of OpenCorePkg with main kexts in [build-repo](https://github.com/dortania/build-repo/tree/builds).
 
 - [Acidanthera](https://github.com/Acidanthera) for OpenCorePkg and main kexts.
+
+- [perez987](https://github.com/perez987) for testing and providing feedback.
