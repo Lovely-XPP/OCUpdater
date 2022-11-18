@@ -7,6 +7,7 @@ Utility for hackintosh user to update opencore and main kexts. The script will a
 
 - [x] Mount EFI
 - [x] Allow to Choose EFI when Encountering More Than 1 EFI
+- [x] Allow to Choose Local OpenCore EFI Folder
 - [x] Hide Password Input
 - [x] Gengerate update information
 - [x] Network connection check
@@ -79,7 +80,7 @@ Utility for hackintosh user to update opencore and main kexts. The script will a
 ## Usage
 
 - Clone the repo 
-- Install Dependency module of python
+- Install Dependent modules of python
 
 ````bash
 pip3 install -r requirements.txt

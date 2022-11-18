@@ -21,8 +21,9 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.33'
+        self.ver = 'V1.34'
         self.path = ROOT + '/data.json'
+        self.mode = 0
         self.EFI_disk = ''
         self.url = 'https://raw.githubusercontent.com/dortania/build-repo/builds/config.json'
         self.bootloader = ""
@@ -151,11 +152,14 @@ class OCUpdater:
         local = {}
 
         # OpenCore info
+        if self.mode == 1:
+            ver = 'Unknown'
+        else:
+            oc_ver = os.popen('nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version').read()
+            oc_ver = oc_ver.split('REL-')[-1]
+            oc_ver = oc_ver[0:3]
+            ver = oc_ver[0] + '.' + oc_ver[1] + '.' + oc_ver[2]
         oc = os.path.abspath(os.path.join(self.root, 'OpenCore.efi'))
-        oc_ver = os.popen('nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version').read()
-        oc_ver = oc_ver.split('REL-')[-1]
-        oc_ver = oc_ver[0:3]
-        ver = oc_ver[0] + '.' + oc_ver[1] + '.' + oc_ver[2]
         time = self.get_time(oc)
         local[self.bootloader] = {'time': time, 'version': ver}
 
@@ -463,10 +467,13 @@ class OCUpdater:
                 try:
                     choose = int(choose)
                     if (choose < 0 and choose > len(OC_disks)):
-                        print(self.Colors('[Error] Input Error, Please input 0 ~ ' + str(len(OC_disks)), fcolor='red'))
+                        print(self.Colors('\n[Error] Input Error, Please input 0 ~ ' + str(len(OC_disks)), fcolor='red'))
+                        time.sleep(3)
                         continue
                     break
                 except:
+                    print(self.Colors('\n[Error] Input Error, Please input 0 ~ ' + str(len(OC_disks)), fcolor='red'))
+                    time.sleep(3)
                     continue
             if choose == 0:
                 os.system("clear")
@@ -493,11 +500,52 @@ class OCUpdater:
 
     # init
     def init(self):
-
-        # mount EFI and get EFI partition name
-        self.mount_EFI()
+        # input mode
+        while True:
+            try:
+                os.system("clear")
+                self.title()
+                user_name = os.getlogin()
+                print(self.Colors("Welcome User [" + user_name + "] to Use OpenCoreUpdate ~\n", fcolor='green'))
+                print("0. " + self.Colors("EFI Mode", fcolor="blue") + " (Automatically mount EFI)")
+                print("1. " + self.Colors("Local Mode", fcolor="blue") + " (Manually Specify OpenCore Folder)\n")
+                choose = input("Please choose running mode: ")
+                choose = int(choose)
+                if (choose == 0 or choose == 1):
+                    break
+                print(self.Colors('\n[Error] Input Error, Please input 0 or 1 ...', fcolor='red'))
+                time.sleep(3)
+            except:
+                print(self.Colors('\n[Error] Input Error, Please input 0 or 1 ...', fcolor='red'))
+                time.sleep(3)
+                continue
+        self.mode = choose
+        # get EFI path, 0: EFI, 1: Local
+        if choose == 1:
+            while True:
+                try:
+                    os.system('clear')
+                    self.title()
+                    print(self.Colors("Local Mode", fcolor="blue") +
+                        " [Input Example: /user/Desktop/EFI/OC]\n")
+                    oc_folder = input("Please Input Local OpenCore EFI Folder: ")
+                    if not os.path.exists(oc_folder):
+                        print(self.Colors(
+                            '\n[Error] Input Directory Not Exists, Please Retry ...', fcolor='red'))
+                        time.sleep(3)
+                        continue
+                    break
+                except:
+                    print(self.Colors(
+                        '\n[Error] Input Directory Not Exists, Please Retry ...', fcolor='red'))
+                    time.sleep(3)
+                    continue
+            self.root = oc_folder
+        else:
+            self.mount_EFI()
 
         # print title
+        os.system('clear')
         self.title()
         print(self.Colors('[Info] Preparing for running...', fcolor='green'))
 
@@ -534,7 +582,7 @@ class OCUpdater:
             print(self.Colors("[Info] The script is terminated.", fcolor='green'))
             print("")
             exit()
-
+        
         # get remote data
         self.remote = self.get_remote_data()
 
@@ -588,13 +636,20 @@ class OCUpdater:
     def main_interface(self):
         print("Current Status:")
         if len(self.root) > 0:
-            print("     EFI: " + self.Colors("mounted " + self.EFI_disk, fcolor='green'))
+            if self.mode == 0:
+                print("     EFI: " + self.Colors("mounted [" + self.EFI_disk + "]", fcolor='green'))
+            else:
+                print("     EFI: " + self.Colors("Local Folder [" + self.root + "]", fcolor='green'))
         else:
             print("     EFI: " + self.Colors("unmounted", fcolor='red'))
-        if not self.update[0]:
-            print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'] + " [Up-to-date]", fcolor='green'))
+        if self.mode == 1:
+            print("     OpenCore: " + self.Colors("Detected, ", fcolor='green') +
+                  self.Colors("Unknow Version", fcolor='yellow') + self.Colors(" [Local Mode]", fcolor='blue'))
         else:
-            print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'], fcolor='green') + self.Colors(" [Update Available]", fcolor='yellow'))
+            if not self.update[0]:
+                print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'] + " [Up-to-date]", fcolor='green'))
+            else:
+                print("     OpenCore: " + self.Colors("Detected, " + self.local[self.bootloader]['version'], fcolor='green') + self.Colors(" [Update Available]", fcolor='yellow'))
         if not self.update[1]:
             print("     Kexts: " + self.Colors("Up-to-date", fcolor='green'))
         else:
@@ -787,7 +842,6 @@ class OCUpdater:
         response = requests.request("GET", oc[update_type]['link'], headers = headers)
         with open(tmp, "wb") as f:
             f.write(response.content)
-        print("")
         print(self.Colors("[Info] Download Done", fcolor='green'))
 
         # extract zip
@@ -1340,8 +1394,9 @@ class OCUpdater:
         os.system("clear")
         self.title()
         # unmount EFI
-        res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + self.EFI_disk).read().strip()
-        print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
+        if self.mode == 0:
+            res = os.popen('echo ' + self.password + ' | sudo -S diskutil unmount force /dev/' + self.EFI_disk).read().strip()
+            print(self.Colors("[Info] (EFI partition) " + res + ".", fcolor='green'))
         print(self.Colors("[Info] The script is terminated.", fcolor='green'))
         print("")
         print("Have a nice day ~")
