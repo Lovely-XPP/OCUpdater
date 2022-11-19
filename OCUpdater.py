@@ -492,7 +492,7 @@ class OCUpdater:
     # check network
     def check_network(self):
         try:
-            res = requests.get(self.url)
+            res = requests.get(self.url, timeout=5)
             self.network = res.ok
         except:
             self.network = False
@@ -527,8 +527,10 @@ class OCUpdater:
                     os.system('clear')
                     self.title()
                     print(self.Colors("Local Mode", fcolor="blue") +
-                        " [Input Example: /user/Desktop/EFI/OC]\n")
+                          "\n [Input Example]\n     /user/Desktop/EFI/OC]\n     ./EFI/OC\n     ../EFI/OC\n")
                     oc_folder = input("Please Input Local OpenCore EFI Folder: ")
+                    if oc_folder[0] == '.':
+                        oc_folder = os.path.abspath(os.path.join(sys.path[0], oc_folder))
                     if not os.path.exists(oc_folder):
                         print(self.Colors(
                             '\n[Error] Input Directory Not Exists, Please Retry ...', fcolor='red'))
