@@ -21,7 +21,7 @@ class OCUpdater:
             exit()
         # PATH and Constant
         ROOT = sys.path[0]
-        self.ver = 'V1.34'
+        self.ver = 'V1.35'
         self.path = ROOT + '/data.json'
         self.mode = 0
         self.EFI_disk = ''
@@ -719,6 +719,7 @@ class OCUpdater:
     def update_oc_config(self, update_config, source_config, save_config):
         del_keys = []
         del_platform_info = []
+        update_info = []
 
         # read update plist
         with open(update_config, 'rb') as pl:
@@ -738,51 +739,85 @@ class OCUpdater:
             up_plist.pop(del_key)
 
         for key in up_plist.keys():
+            # deviceproperties
             if key.lower() == "deviceproperties":
                 up_plist[key] = src_plist[key]
                 continue
             for key2 in up_plist[key].keys():
-                try:
-                    if key.lower() == "platforminfo":
-                        if key2 in src_plist[key].keys():
-                            up_plist[key][key2] = src_plist[key][key2]
-                            continue
-                        del_platform_info.append(key2)
-                        continue
-                    if isinstance(up_plist[key][key2], list):
-                        try:
-                            try:
-                                example = up_plist[key][key2][1]
-                            except:
-                                example = up_plist[key][key2][0]
-                        except:
-                            up_plist[key][key2] = src_plist[key][key2]
-                            continue
+                # platforminfo
+                if key.lower() == "platforminfo":
+                    if key2 in src_plist[key].keys():
                         up_plist[key][key2] = src_plist[key][key2]
-                        for ele in up_plist[key][key2]:
-                            keys = ele.keys()
-                            for key3 in example.keys():
-                                if key3 in keys or key3.lower() == 'comment':
-                                    continue
-                                ele[key3] = example[key3]
                         continue
-                    if isinstance(up_plist[key][key2], dict):
-                        example = up_plist[key][key2]
+                    del_platform_info.append(key2)
+                    continue
+                # nvram
+                if key.lower() == "nvram":
+                    if key2 in src_plist[key].keys():
                         up_plist[key][key2] = src_plist[key][key2]
-                        ele = up_plist[key][key2]
-                        keys = ele.keys()
-                        for key3 in example.keys():
-                            if key3 in keys or key3.lower() == 'comment':
-                                continue
-                            ele[key3] = example[key3]
                         continue
-                    up_plist[key][key2] = src_plist[key][key2]
-                except:
+                # others entry
+                # list copy directly
+                if isinstance(up_plist[key][key2], list):
                     try:
+                        # if list contains dict, check if some keys are missing
+                        if isinstance(up_plist[key][key2][0], dict):
+                            add = []
+                            example = up_plist[key][key2][0]
+                            up_plist[key][key2] = src_plist[key][key2]
+                            for entry in up_plist[key][key2]:
+                                for key3 in example.keys():
+                                    if key3.lower() == "loadearly":
+                                        entry[key3] = False
+                                    if key3 not in entry.keys():
+                                        add.append(key3)
+                                        entry[key3] = example[key3]
+                            add = list(set(add))
+                            if len(add) > 0:
+                                for key3 in add:
+                                    info = "[Config: Add Entry] " + str(key) + "->" + str(key2) + "->" + str(key3) + ":  " 
+                                    info = info + str(example[key3])
+                                    update_info.append(info)
+                            continue
                         up_plist[key][key2] = src_plist[key][key2]
-                    except:
-                        continue
-
+                    except IndexError:
+                        up_plist[key][key2] = src_plist[key][key2]
+                # dict copy 
+                if isinstance(up_plist[key][key2], dict):
+                    keys = src_plist[key][key2].keys()
+                    keys_up = up_plist[key][key2].keys()
+                    # check delete entry
+                    for key3 in keys:
+                        if key3 not in keys_up:
+                            info = "[Config: Delete Entry] " + str(key) + "->" + str(key2) + "->" + str(key3) + ":  " 
+                            info = info + str(src_plist[key][key2][key3])
+                            update_info.append(info)
+                    for key3 in keys_up:
+                        # if add entry, keep the default key-value 
+                        if key3 not in keys:
+                            info = "[Config: Add Entry] " + str(key) + "->" + str(key2) + "->" + str(key3) + ":  " 
+                            info = info + str(up_plist[key][key2][key3])
+                            update_info.append(info)
+                            continue
+                        # if change entry type, keep the default key-value
+                        if type(up_plist[key][key2][key3]) != type(src_plist[key][key2][key3]):
+                            info = "[Config: Change Entry] " + str(key) + "->" + str(key2) + "->" + str(key3) + ":  " 
+                            info = info + str(src_plist[key][key2][key3]) + " -> " +str(up_plist[key][key2][key3])
+                            info = self.Colors(info, fcolor="yellow")
+                            update_info.append(info)
+                            continue
+                        up_plist[key][key2][key3] = src_plist[key][key2][key3]
+                    continue
+                # other type
+                # if change entry type, keep the default key-value
+                if type(up_plist[key][key2]) != type(src_plist[key][key2]):
+                    info = "[Config: Change Entry] " + str(key) + "->" + str(key2) + ":  " 
+                    info = info + str(src_plist[key][key2]) + " -> " +str(up_plist[key][key2])
+                    info = self.Colors(info, fcolor="yellow")
+                    update_info.append(info)
+                    continue
+                up_plist[key][key2] = src_plist[key][key2]
+                
         # delete no need platform information
         for platform_info in del_platform_info:
             up_plist["PlatformInfo"].pop(platform_info)
@@ -791,6 +826,10 @@ class OCUpdater:
         with open(save_config, 'wb') as new_plist:
             dump(up_plist, new_plist, fmt=FMT_XML,
                  sort_keys=True, skipkeys=False)
+
+        # display config update info
+        for info in update_info:
+            print(info)
 
 
     # update OpenCore interface
